@@ -1,0 +1,256 @@
+{
+  "treasury": 71,
+  "accounts": {
+    "506985015398236181": {
+      "userId": "506985015398236181",
+      "status": "active",
+      "balance": 6,
+      "withdrawableBalance": 0,
+      "pendingApprovalBalance": 0,
+      "createdAt": "2026-04-15T12:43:13.894Z",
+      "closedAt": null,
+      "closedReason": null,
+      "transactions": [
+        {
+          "id": "ACCOPEN-993894-4M2QW8",
+          "type": "account_opened",
+          "by": "506985015398236181",
+          "createdAt": "2026-04-15T12:43:13.894Z"
+        },
+        {
+          "id": "DEP-151906-M3YXF1",
+          "type": "deposit",
+          "grossAmount": 5,
+          "creditedAmount": 3,
+          "treasuryAmount": 2,
+          "bankerCut": 0,
+          "reason": "event",
+          "otherReason": null,
+          "source": "manual",
+          "sourceRef": null,
+          "by": "506985015398236181",
+          "approvedBy": "506985015398236181",
+          "createdAt": "2026-04-15T12:45:51.906Z",
+          "approvedAt": "2026-04-15T12:50:47.003Z"
+        },
+        {
+          "id": "DEP-080202-N57PN8",
+          "type": "deposit",
+          "grossAmount": 5,
+          "creditedAmount": 3,
+          "treasuryAmount": 2,
+          "bankerCut": 0,
+          "reason": "event",
+          "otherReason": null,
+          "source": "manual",
+          "sourceRef": null,
+          "by": "506985015398236181",
+          "approvedBy": "506985015398236181",
+          "createdAt": "2026-04-15T12:44:40.202Z",
+          "approvedAt": "2026-04-15T12:50:52.622Z"
+        }
+      ],
+      "deposits": [
+        {
+          "id": "DEP-151906-M3YXF1",
+          "grossAmount": 5,
+          "creditedAmount": 3,
+          "unlockAt": "2026-04-30T12:50:47.003Z",
+          "approvedAt": "2026-04-15T12:50:47.003Z",
+          "source": "manual",
+          "sourceRef": null
+        },
+        {
+          "id": "DEP-080202-N57PN8",
+          "grossAmount": 5,
+          "creditedAmount": 3,
+          "unlockAt": "2026-04-30T12:50:52.622Z",
+          "approvedAt": "2026-04-15T12:50:52.622Z",
+          "source": "manual",
+          "sourceRef": null
+        }
+      ],
+      "monthlyWithdrawals": {},
+      "boostRewards": []
+    }
+  },
+  "points": {
+    "506985015398236181": {
+      "total": 1,
+      "eventsAttended": 1,
+      "history": [
+        {
+          "id": "PTS-050550-X7FKB6",
+          "amount": 1,
+          "actorId": "506985015398236181",
+          "reason": "event_add",
+          "createdAt": "2026-04-15T11:37:30.550Z"
+        },
+        {
+          "id": "PTS-124802-0HMM7Q",
+          "amount": -1,
+          "actorId": "506985015398236181",
+          "reason": "event_remove",
+          "createdAt": "2026-04-15T11:38:44.802Z"
+        },
+        {
+          "id": "PTS-902855-7IAMH7",
+          "amount": 1,
+          "actorId": "506985015398236181",
+          "reason": "event_add",
+          "createdAt": "2026-04-15T12:41:42.855Z"
+        },
+        {
+          "id": "PTS-946921-Q8X9ZU",
+          "amount": -1,
+          "actorId": "506985015398236181",
+          "reason": "event_remove",
+          "createdAt": "2026-04-15T12:42:26.921Z"
+        },
+        {
+          "id": "PTS-019741-O9R71A",
+          "amount": 1,
+          "actorId": "506985015398236181",
+          "reason": "event_add",
+          "createdAt": "2026-04-15T12:43:39.741Z"
+        }
+      ]
+    }
+  },
+  "pendingDeposits": {
+    "DEP-080202-N57PN8": {
+      "txId": "DEP-080202-N57PN8",
+      "userId": "506985015398236181",
+      "createdBy": "506985015398236181",
+      "amount": 5,
+      "reason": "event",
+      "otherReason": null,
+      "issuerRoleType": "high_authority",
+      "source": "manual",
+      "sourceRef": null,
+      "notes": null,
+      "status": "approved",
+      "requiresHighAuthority": true,
+      "isUpper": false,
+      "isSelfDeposit": true,
+      "createdAt": "2026-04-15T12:44:40.202Z",
+      "approvedAt": "2026-04-15T12:50:52.622Z",
+      "approvedBy": "506985015398236181",
+      "pendingMessageId": "1493955224363335701",
+      "staffMessageId": null
+    },
+    "DEP-151906-M3YXF1": {
+      "txId": "DEP-151906-M3YXF1",
+      "userId": "506985015398236181",
+      "createdBy": "506985015398236181",
+      "amount": 5,
+      "reason": "event",
+      "otherReason": null,
+      "issuerRoleType": "high_authority",
+      "source": "manual",
+      "sourceRef": null,
+      "notes": null,
+      "status": "approved",
+      "requiresHighAuthority": true,
+      "isUpper": false,
+      "isSelfDeposit": true,
+      "createdAt": "2026-04-15T12:45:51.906Z",
+      "approvedAt": "2026-04-15T12:50:47.003Z",
+      "approvedBy": "506985015398236181",
+      "pendingMessageId": "1493955525094801530",
+      "staffMessageId": null
+    }
+  },
+  "fees": {},
+  "withdrawals": {},
+  "events": {
+    "EVT-050169-TT2XYQ": {
+      "id": "EVT-050169-TT2XYQ",
+      "voiceChannelId": "1492867115127148614",
+      "hostIds": [
+        "506985015398236181"
+      ],
+      "mvpIds": [],
+      "attendeeIds": [],
+      "points": 1,
+      "mvpPoints": 1,
+      "eventType": "test",
+      "notes": "test",
+      "createdBy": "506985015398236181",
+      "createdAt": "2026-04-15T11:37:30.170Z",
+      "loggingCampMessageId": "1493938320714105032",
+      "status": "active"
+    },
+    "EVT-901542-BKNFB6": {
+      "id": "EVT-901542-BKNFB6",
+      "voiceChannelId": "1492867115127148614",
+      "hostIds": [
+        "506985015398236181"
+      ],
+      "mvpIds": [],
+      "attendeeIds": [
+        "506985015398236181"
+      ],
+      "points": 1,
+      "mvpPoints": 1,
+      "eventType": "test",
+      "notes": "None",
+      "createdBy": "506985015398236181",
+      "createdAt": "2026-04-15T12:41:41.543Z",
+      "loggingCampMessageId": "1493954475185144009",
+      "status": "active"
+    }
+  },
+  "pendingBoosts": {},
+  "setupMessages": {
+    "createAccountPanel": "1493934547316772894",
+    "bankerCommandsPanel": "1493934553792909494",
+    "bankCommandsPanel": "1493934554954727424"
+  },
+  "cooldowns": {
+    "deposits": {
+      "506985015398236181": 1776257151906
+    }
+  },
+  "applications": {
+    "APP-601675-G65H5Q": {
+      "id": "APP-601675-G65H5Q",
+      "userId": "1124985664799256587",
+      "threadId": "1493936436116983818",
+      "answers": {},
+      "questionIndex": 0,
+      "status": "collecting",
+      "createdAt": "2026-04-15T11:30:01.675Z"
+    },
+    "APP-613243-ONC4UM": {
+      "id": "APP-613243-ONC4UM",
+      "userId": "1124985664799256587",
+      "threadId": "1493936483126612132",
+      "answers": {},
+      "questionIndex": 0,
+      "status": "collecting",
+      "createdAt": "2026-04-15T11:30:13.243Z"
+    },
+    "APP-052412-6YDB4N": {
+      "id": "APP-052412-6YDB4N",
+      "userId": "506985015398236181",
+      "threadId": "1493946719111483533",
+      "status": "collecting"
+    }
+  },
+  "eventDepositTasks": {
+    "EVDEP-020084-LG2MRZ": {
+      "taskId": "EVDEP-020084-LG2MRZ",
+      "eventId": "EVT-901542-BKNFB6",
+      "userId": "506985015398236181",
+      "userMention": "<@506985015398236181>",
+      "amount": 5,
+      "status": "completed",
+      "createdAt": "2026-04-15T12:43:40.084Z",
+      "completedBy": "506985015398236181",
+      "completedAt": "2026-04-15T12:44:01.961Z",
+      "messageId": "1493954972138606642"
+    }
+  },
+  "boostHistory": {}
+}
