@@ -58,6 +58,23 @@ const commands = [
     .addIntegerOption(option =>
       option.setName("amount").setDescription("Amount to withdraw").setRequired(true).setMinValue(1)
     ),
+  
+  new SlashCommandBuilder()
+  .setName("staffwithdraw")
+  .setDescription("Withdraw funds from a user's account")
+  .addUserOption(option =>
+    option.setName("user").setDescription("User to withdraw from").setRequired(true)
+  )
+  .addIntegerOption(option =>
+    option.setName("amount").setDescription("Amount to withdraw").setRequired(true).setMinValue(1)
+  ),
+
+  new SlashCommandBuilder()
+  .setName("treasuryremove")
+  .setDescription("Remove funds from the treasury")
+  .addIntegerOption(option =>
+    option.setName("amount").setDescription("Amount to remove").setRequired(true).setMinValue(1)
+  ),
 
   new SlashCommandBuilder()
     .setName("create_bank_account")
