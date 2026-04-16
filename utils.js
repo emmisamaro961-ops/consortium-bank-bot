@@ -110,6 +110,8 @@ function staffCommandNames() {
     "create_bank_account",
     "close_account",
     "treasurydonate",
+    "treasuryremove",
+    "staffwithdraw",
     "addpoints",
     "removepoints",
   ]);
