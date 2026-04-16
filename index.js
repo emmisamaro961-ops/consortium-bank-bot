@@ -626,20 +626,20 @@ function buildHelpEmbedForMember(interaction) {
     .setTitle("🏧 Consortium Bank Help")
     .setDescription(
       [
-        `Use public bank commands in <#${config.channels.bankCommands}>`,
-        "",
-        "**Member Commands**",
-        "`/balance` - view your account balance",
-        "`/account` - view your account details",
-        "`/withdraw` - request a withdrawal",
-        "",
-        "**Withdrawal Rules**",
-        "- Active bank account required",
-        "- Balance must be above $100",
-        "- Account must be 30 days old",
-        "- Enough withdrawable balance required",
-        "- Monthly withdrawal limit is $250",
-      ].join("\n")
+  `Use public bank commands in <#${config.channels.bankCommands}>`,
+  "",
+  "**Member Commands**",
+  "`/balance` - view your account balance",
+  "`/account` - view your account details",
+  "`/withdraw` - check if you meet withdrawal requirements",
+  "",
+  "**Withdrawal Rules**",
+  "- Active bank account required",
+  "- Balance must be above $100",
+  "- Account must be 30 days old",
+  "- Enough withdrawable balance required",
+  "- Monthly withdrawal limit is $250",
+].join("\n")
     );
 }
 
@@ -745,80 +745,6 @@ function getWithdrawalEligibility(account, requestedAmount) {
   }
 
   return issues;
-}
-
-async function createWithdrawalThread(interaction, amount) {
-  const parentChannel = await client.channels.fetch(config.channels.pendingWithdrawals).catch(() => null);
-  if (!parentChannel || parentChannel.type !== ChannelType.GuildText) {
-    throw new Error("Pending withdrawals channel is unavailable.");
-  }
-
-  const withdrawalId = generateId("WDR");
-  const taxAmount = Math.floor(amount * config.economy.withdrawTaxRate);
-  const payoutAmount = amount - taxAmount;
-
-  const thread = await parentChannel.threads.create({
-    name: `withdrawal-${interaction.user.username}-${withdrawalId}`,
-    autoArchiveDuration: 1440,
-    reason: `Withdrawal request for ${interaction.user.tag}`,
-    type: ChannelType.PrivateThread,
-    invitable: false,
-  });
-
-  await thread.members.add(interaction.user.id).catch(() => null);
-
-  const guild = interaction.guild;
-  for (const member of guild.members.cache.values()) {
-    const roleState = getMemberRoleState(member);
-    if (roleState.isSovereign || roleState.isDirector) {
-      await thread.members.add(member.id).catch(() => null);
-    }
-  }
-
-  data.withdrawals[withdrawalId] = {
-    id: withdrawalId,
-    userId: interaction.user.id,
-    amount,
-    taxAmount,
-    payoutAmount,
-    status: "pending",
-    threadId: thread.id,
-    createdAt: nowIso(),
-    completedAt: null,
-    completedBy: null,
-  };
-  persist();
-
-  const embed = new EmbedBuilder()
-    .setColor(config.colors.withdrawal)
-    .setTitle("💵 Pending Withdrawal")
-    .setDescription(
-      [
-        `User: ${interaction.user}`,
-        `Requested Amount: ${formatMoney(amount)}`,
-        `Treasury Tax Kept: ${formatMoney(taxAmount)}`,
-        `Expected Payout: ${formatMoney(payoutAmount)}`,
-        "",
-        "Consortium Sovereign or Bank Director will provide further instructions here.",
-      ].join("\n")
-    )
-    .addFields({ name: "Withdrawal ID", value: withdrawalId, inline: true })
-    .setTimestamp();
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`complete_withdrawal_${withdrawalId}`)
-      .setLabel("Complete Withdrawal")
-      .setStyle(ButtonStyle.Success)
-  );
-
-  await thread.send({
-    content: `${getGuildRoleMention(config.roles.sovereign)} ${getGuildRoleMention(config.roles.director)}`,
-    embeds: [embed],
-    components: [row],
-  });
-
-  return withdrawalId;
 }
 
 async function logPointsChange(userId, amount, actorId, reasonText, isMvp = false) {
@@ -1244,92 +1170,6 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 }
-
-      if (customId.startsWith("complete_withdrawal_")) {
-        if (!isHighAuthority(interaction.member)) {
-          return interaction.reply({
-            embeds: [buildErrorEmbed("Only the Consortium Sovereign or Bank Director can complete withdrawals.")],
-            ephemeral: true,
-          });
-        }
-
-        const withdrawalId = customId.replace("complete_withdrawal_", "");
-        const withdrawal = data.withdrawals[withdrawalId];
-        if (!withdrawal) {
-          return interaction.reply({
-            embeds: [buildErrorEmbed("Withdrawal could not be found.")],
-            ephemeral: true,
-          });
-        }
-
-        if (withdrawal.status !== "pending") {
-          return interaction.reply({
-            embeds: [buildErrorEmbed("This withdrawal has already been completed.")],
-            ephemeral: true,
-          });
-        }
-
-        const account = getOrCreateAccount(data, withdrawal.userId);
-        account.balance = Math.max(0, Number(account.balance || 0) - withdrawal.amount);
-        account.withdrawableBalance = Math.max(0, Number(account.withdrawableBalance || 0) - withdrawal.amount);
-        addMonthlyWithdrawn(account, withdrawal.amount);
-
-        addTransactionToAccount(account, {
-          id: withdrawal.id,
-          type: "withdrawal",
-          grossAmount: withdrawal.amount,
-          payoutAmount: withdrawal.payoutAmount,
-          taxAmount: withdrawal.taxAmount,
-          by: withdrawal.userId,
-          approvedBy: interaction.user.id,
-          createdAt: withdrawal.createdAt,
-          completedAt: nowIso(),
-        });
-
-        withdrawal.status = "completed";
-        withdrawal.completedAt = nowIso();
-        withdrawal.completedBy = interaction.user.id;
-        persist();
-
-        await sendTreasuryEmbed(
-          `${formatMoney(withdrawal.amount)} has been withdrawn from the treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`
-        );
-
-        const publicEmbed = new EmbedBuilder()
-          .setColor(config.colors.withdrawal)
-          .setDescription(`<@${withdrawal.userId}> Withdrew ${formatMoney(withdrawal.amount)} keeping ${formatMoney(withdrawal.taxAmount)} in the treasury.`)
-          .setTimestamp();
-
-        await sendConsortiumBankEmbed(publicEmbed);
-
-        const txEmbed = new EmbedBuilder()
-          .setColor(config.colors.withdrawal)
-          .setTitle("🧾 Withdrawal Completed")
-          .addFields(
-            { name: "Withdrawal ID", value: withdrawal.id, inline: true },
-            { name: "User", value: `<@${withdrawal.userId}>`, inline: true },
-            { name: "Requested Amount", value: formatMoney(withdrawal.amount), inline: true },
-            { name: "Payout", value: formatMoney(withdrawal.payoutAmount), inline: true },
-            { name: "Treasury Tax", value: formatMoney(withdrawal.taxAmount), inline: true },
-            { name: "Completed By", value: `${interaction.user}`, inline: true }
-          )
-          .setTimestamp();
-
-        await sendTransactionsLog(txEmbed);
-
-        await interaction.reply({
-          embeds: [buildSuccessEmbed(`Withdrawal ${withdrawal.id} completed.`)],
-          ephemeral: true,
-        });
-
-        const thread = interaction.channel;
-        if (thread?.isThread()) {
-          await thread.setLocked(true).catch(() => null);
-          await thread.setArchived(true).catch(() => null);
-        }
-
-        return;
-      }
 
       if (customId.startsWith("event_points_")) {
         const eventId = customId.replace("event_points_", "");
@@ -1901,38 +1741,177 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (commandName === "withdraw") {
-      if (!hasActiveAccount(data, interaction.user.id)) {
-        return interaction.reply({
-          embeds: [buildErrorEmbed("This user does not have an active bank account")],
-          ephemeral: true,
-        });
-      }
+  if (!hasActiveAccount(data, interaction.user.id)) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("This user does not have an active bank account")],
+      ephemeral: true,
+    });
+  }
 
-      const amount = interaction.options.getInteger("amount", true);
-      const account = getOrCreateAccount(data, interaction.user.id);
-      const changed = updateWithdrawableDepositsForAccount(account);
-      if (changed) persist();
+  const amount = interaction.options.getInteger("amount", true);
+  const account = getOrCreateAccount(data, interaction.user.id);
+  const changed = updateWithdrawableDepositsForAccount(account);
+  if (changed) persist();
 
-      const issues = getWithdrawalEligibility(account, amount);
-      if (issues.length) {
-        return interaction.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(config.colors.error)
-              .setTitle("❌ Withdrawal Requirements Not Met")
-              .setDescription(issues.map(i => `• ${i}`).join("\n"))
-          ],
-          ephemeral: true,
-        });
-      }
+  const issues = getWithdrawalEligibility(account, amount);
+  if (issues.length) {
+    return interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(config.colors.error)
+          .setTitle("❌ Withdrawal Requirements Not Met")
+          .setDescription(issues.map(i => `• ${i}`).join("\n"))
+      ],
+      ephemeral: true,
+    });
+  }
 
-      const withdrawalId = await createWithdrawalThread(interaction, amount);
+  return interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(config.colors.success)
+        .setTitle("✅ Withdrawal Available")
+        .setDescription(
+          `You meet the requirements to withdraw ${formatMoney(amount)}!\n\nPlease go to the **Request Withdrawal** channel and request a withdrawal.`
+        )
+        .setTimestamp()
+    ],
+    ephemeral: true,
+  });
+}
 
-      return interaction.reply({
-        embeds: [buildSuccessEmbed(`Withdrawal request created. Reference: ${withdrawalId}`)],
-        ephemeral: true,
-      });
-    }
+if (commandName === "staffwithdraw") {
+  if (!isHighAuthority(interaction.member)) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("Only the Consortium Sovereign or Bank Director can use this command.")],
+      ephemeral: true,
+    });
+  }
+
+  const user = interaction.options.getUser("user", true);
+  const amount = interaction.options.getInteger("amount", true);
+
+  if (!hasActiveAccount(data, user.id)) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("This user does not have an active bank account")],
+      ephemeral: true,
+    });
+  }
+
+  const account = getOrCreateAccount(data, user.id);
+  const changed = updateWithdrawableDepositsForAccount(account);
+  if (changed) persist();
+
+  if (Number(account.balance || 0) < amount) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("This account does not have enough balance for that withdrawal.")],
+      ephemeral: true,
+    });
+  }
+
+  if (Number(account.withdrawableBalance || 0) < amount) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("This account does not have enough withdrawable balance for that withdrawal.")],
+      ephemeral: true,
+    });
+  }
+
+  if (data.treasury < amount) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("Treasury does not have enough funds.")],
+      ephemeral: true,
+    });
+  }
+
+  const taxAmount = Math.floor(amount * config.economy.withdrawTaxRate);
+
+  account.balance = Math.max(0, Number(account.balance || 0) - amount);
+  account.withdrawableBalance = Math.max(0, Number(account.withdrawableBalance || 0) - amount);
+  addMonthlyWithdrawn(account, amount);
+
+  addTransactionToAccount(account, {
+    id: generateId("STFWDR"),
+    type: "staff_withdrawal",
+    grossAmount: amount,
+    taxAmount,
+    by: interaction.user.id,
+    createdAt: nowIso(),
+  });
+
+  data.treasury -= amount;
+  persist();
+
+  await sendTreasuryEmbed(
+    `${formatMoney(amount)} was withdrawn from the treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`
+  );
+
+  const publicEmbed = new EmbedBuilder()
+    .setColor(config.colors.withdrawal)
+    .setDescription(`<@${user.id}> withdrew ${formatMoney(amount)}, keeping ${formatMoney(taxAmount)} in the treasury.`)
+    .setTimestamp();
+
+  await sendConsortiumBankEmbed(publicEmbed);
+
+  const txEmbed = new EmbedBuilder()
+    .setColor(config.colors.withdrawal)
+    .setTitle("🧾 Staff Withdrawal")
+    .addFields(
+      { name: "User", value: `<@${user.id}>`, inline: true },
+      { name: "Amount", value: formatMoney(amount), inline: true },
+      { name: "Treasury Balance After", value: formatMoney(data.treasury), inline: true },
+      { name: "Processed By", value: `${interaction.user}`, inline: true }
+    )
+    .setTimestamp();
+
+  await sendTransactionsLog(txEmbed);
+
+  return interaction.reply({
+    embeds: [buildSuccessEmbed(`Withdrew ${formatMoney(amount)} from ${user}'s account.`)],
+    ephemeral: true,
+  });
+}
+
+if (commandName === "treasuryremove") {
+  if (!isHighAuthority(interaction.member)) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("Only the Consortium Sovereign or Bank Director can use this command.")],
+      ephemeral: true,
+    });
+  }
+
+  const amount = interaction.options.getInteger("amount", true);
+
+  if (data.treasury < amount) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("Treasury does not have enough funds.")],
+      ephemeral: true,
+    });
+  }
+
+  data.treasury -= amount;
+  persist();
+
+  await sendTreasuryEmbed(
+    `${formatMoney(amount)} was withdrawn from the treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`
+  );
+
+  const txEmbed = new EmbedBuilder()
+    .setColor(config.colors.withdrawal)
+    .setTitle("🧾 Treasury Removal")
+    .addFields(
+      { name: "Amount Removed", value: formatMoney(amount), inline: true },
+      { name: "New Treasury Balance", value: formatMoney(data.treasury), inline: true },
+      { name: "Removed By", value: `${interaction.user}`, inline: true }
+    )
+    .setTimestamp();
+
+  await sendTransactionsLog(txEmbed);
+
+  return interaction.reply({
+    embeds: [buildSuccessEmbed(`Removed ${formatMoney(amount)} from the treasury.`)],
+    ephemeral: true,
+  });
+}
 
     if (commandName === "addpoints" || commandName === "removepoints") {
       if (!isBankStaff(interaction.member)) {
