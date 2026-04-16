@@ -37,6 +37,7 @@ module.exports = {
     success: 0x2ecc71,
     info: 0x5865f2,
     neutral: 0xf1c40f,
+	boost: 0xf47fff,
   },
 
   economy: {
