@@ -681,18 +681,18 @@ async function tryClaimPendingBoost(userId) {
 
   await sendTreasuryEmbed(
     `<@${userId}> Boosted the server, adding ${formatMoney(config.economy.boostRewardTreasury)} to The Consortium Treasury!\nNew Treasury Balance: ${formatMoney(data.treasury)}\nThank you for boosting! <@${userId}>`,
-    config.colors.info
+    config.colors.boost
   );
 
   const boostEmbed = new EmbedBuilder()
-    .setColor(config.colors.info)
+    .setColor(config.colors.boost)
     .setDescription(`<@${userId}> boosted the server and claimed a boost reward of ${formatMoney(config.economy.boostRewardUser)}. Thank you for boosting! <@${userId}>`)
     .setTimestamp();
 
   await sendConsortiumBankEmbed(boostEmbed);
 
   const internal = new EmbedBuilder()
-    .setColor(config.colors.info)
+    .setColor(config.colors.boost)
     .setTitle("🧾 Boost Reward Claimed")
     .setDescription(`<@${userId}> claimed their pending boost reward.`)
     .setTimestamp();
@@ -938,11 +938,11 @@ async function maybeHandleBoosterMembershipUpdate(oldMember, newMember) {
 
       await sendTreasuryEmbed(
         `<@${userId}> Boosted the server, adding ${formatMoney(config.economy.boostRewardTreasury)} to The Consortium Treasury!\nNew Treasury Balance: ${formatMoney(data.treasury)}\nThank you for boosting! <@${userId}>`,
-        config.colors.info
+        config.colors.boost
       );
 
       const publicEmbed = new EmbedBuilder()
-        .setColor(config.colors.info)
+        .setColor(config.colors.boost)
         .setDescription(`<@${userId}> boosted the server and received a boost reward of ${formatMoney(config.economy.boostRewardUser)}. Thank you for boosting! <@${userId}>`)
         .setTimestamp();
 
