@@ -63,8 +63,8 @@ function reloadData() {
   data = loadData();
 }
 
-function persist() {
-  saveData(data);
+async function persist() {
+  await saveData(data);
 }
 
 function getGuildRoleMention(roleId) {
@@ -260,7 +260,7 @@ async function syncPendingMirrorMessage(tx, newContent, disableButtons = false) 
   }
 }
 
-function createPendingDepositObject({
+async function createPendingDepositObject({
   userId,
   createdBy,
   amount,
@@ -297,7 +297,7 @@ function createPendingDepositObject({
     staffMessageId: null,
   };
 
-  persist();
+  await persist();
   return data.pendingDeposits[txId];
 }
 
@@ -344,7 +344,7 @@ async function postPendingDeposit(tx, guild) {
     }
   }
 
-  persist();
+  await persist();
 }
 
 async function approveDeposit(tx, approver, guild) {
@@ -435,7 +435,7 @@ async function approveDeposit(tx, approver, guild) {
   tx.approvedBy = approver.user.id;
   tx.approvedAt = nowIso();
 
-  persist();
+  await persist();
 
   await sendTreasuryEmbed(
     `${formatMoney(treasuryAmount)} was added to The Consortium Treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`
@@ -477,7 +477,7 @@ async function denyDeposit(tx, approver) {
   tx.approvedBy = approver.user.id;
   tx.approvedAt = nowIso();
 
-  persist();
+  await persist();
 
   await syncPendingMirrorMessage(tx, `Denied by ${approver.user.tag}`, true);
 
@@ -521,7 +521,7 @@ async function openAccountForUser(targetUserId, openedByUserId, publicLog = true
     createdAt: nowIso(),
   });
 
-  persist();
+  await persist();
 
   if (publicLog) {
     const embed = new EmbedBuilder()
@@ -572,7 +572,7 @@ async function closeAccountForUser(targetUserId, closedByUserId, tax25, reason =
     createdAt: nowIso(),
   });
 
-  persist();
+  await persist();
 
   if (announce) {
     const embed = new EmbedBuilder()
@@ -650,7 +650,7 @@ async function tryClaimPendingBoost(userId) {
   const expires = new Date(pending.expiresAt).getTime();
   if (Date.now() > expires) {
     delete data.pendingBoosts[userId];
-    persist();
+    await persist();
     return;
   }
 
@@ -677,7 +677,7 @@ async function tryClaimPendingBoost(userId) {
 
   updateTreasury(data, config.economy.boostRewardTreasury, { reason: "boost_reward", userId });
 
-  persist();
+  await persist();
 
   await sendTreasuryEmbed(
     `<@${userId}> Boosted the server, adding ${formatMoney(config.economy.boostRewardTreasury)} to The Consortium Treasury!\nNew Treasury Balance: ${formatMoney(data.treasury)}\nThank you for boosting! <@${userId}>`,
@@ -700,7 +700,7 @@ async function tryClaimPendingBoost(userId) {
   await sendTransactionsLog(internal);
 
   delete data.pendingBoosts[userId];
-  persist();
+  await persist();
 }
 
 function updateWithdrawableDepositsForAccount(account) {
@@ -763,7 +763,7 @@ async function logPointsChange(userId, amount, actorId, reasonText, isMvp = fals
     createdAt: nowIso(),
   });
 
-  persist();
+  await persist();
 
   const userMention = `<@${userId}>`;
   const actorMention = actorId ? `<@${actorId}>` : null;
@@ -823,7 +823,7 @@ async function createEventLog(interaction) {
     status: "active",
   };
 
-  persist();
+  await persist();
 
   const loggingCamp = await client.channels.fetch(config.channels.loggingCamp).catch(() => null);
   if (!loggingCamp) {
@@ -864,7 +864,7 @@ async function createEventLog(interaction) {
 
   const msg = await loggingCamp.send({ embeds: [embed], components: [row] });
   data.events[eventId].loggingCampMessageId = msg.id;
-  persist();
+  await persist();
 
   for (const userId of attendeeIds) {
     const isMvp = mvpIds.includes(userId);
@@ -887,12 +887,12 @@ async function createEventLog(interaction) {
         messageId: null,
       };
       data.eventDepositTasks[taskId] = task;
-      persist();
+      await persist();
 
       const taskMsg = await sendEventLoggingTask(task);
       if (taskMsg) {
         data.eventDepositTasks[taskId].messageId = taskMsg.id;
-        persist();
+        await persist();
       }
     }
   }
@@ -934,7 +934,7 @@ async function maybeHandleBoosterMembershipUpdate(oldMember, newMember) {
       });
 
       updateTreasury(data, config.economy.boostRewardTreasury, { reason: "boost_reward", userId });
-      persist();
+      await persist();
 
       await sendTreasuryEmbed(
         `<@${userId}> Boosted the server, adding ${formatMoney(config.economy.boostRewardTreasury)} to The Consortium Treasury!\nNew Treasury Balance: ${formatMoney(data.treasury)}\nThank you for boosting! <@${userId}>`,
@@ -962,7 +962,7 @@ async function maybeHandleBoosterMembershipUpdate(oldMember, newMember) {
         createdAt: nowIso(),
         expiresAt: new Date(Date.now() + config.economy.boostGraceDays * 24 * 60 * 60 * 1000).toISOString(),
       };
-      persist();
+      await persist();
 
       const channel = await client.channels.fetch(config.channels.consortiumBank).catch(() => null);
       if (channel) {
@@ -996,7 +996,7 @@ async function maybeHandleBoosterMembershipUpdate(oldMember, newMember) {
         createdAt: nowIso(),
       });
 
-      persist();
+      await persist();
 
       await sendTreasuryEmbed(
         `<@${userId}>'s boost expired early, removing ${formatMoney(reward.treasuryAmount)} from The Consortium Treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`,
@@ -1031,7 +1031,7 @@ client.once("clientReady", async () => {
     if (account?.status === "active") {
       const changed = updateWithdrawableDepositsForAccount(account);
       if (changed) {
-        persist();
+        await persist();
       }
     }
   }
@@ -1098,7 +1098,7 @@ client.on("interactionCreate", async (interaction) => {
           status: "collecting",
           createdAt: nowIso(),
         };
-        persist();
+        await persist();
 
         const introEmbed = new EmbedBuilder()
           .setColor(config.colors.info)
@@ -1257,7 +1257,7 @@ client.on("interactionCreate", async (interaction) => {
           eventId,
           expiresAt: Date.now() + 120000,
         };
-        persist();
+        await persist();
 
         return interaction.reply({
           embeds: [
@@ -1297,7 +1297,7 @@ client.on("interactionCreate", async (interaction) => {
         task.status = "completed";
         task.completedBy = interaction.user.id;
         task.completedAt = nowIso();
-        persist();
+        await persist();
 
         const embed = new EmbedBuilder()
           .setColor(config.colors.success)
@@ -1356,7 +1356,7 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "create_bank_account") {
       if (!isBankStaff(interaction.member)) {
         return interaction.reply({
-          embeds: [buildErrorEmbed("Only the Consortium Sovereign or Bank Director can use this command.")],
+          embeds: [buildErrorEmbed("Only bank staff can use this command.")],
           ephemeral: true,
         });
       }
@@ -1414,7 +1414,7 @@ client.on("interactionCreate", async (interaction) => {
 
       const account = getOrCreateAccount(data, targetUser.id);
       const changed = updateWithdrawableDepositsForAccount(account);
-      if (changed) persist();
+      if (changed) await persist();
 
       const summary = getAccountSummary(account);
 
@@ -1453,7 +1453,7 @@ client.on("interactionCreate", async (interaction) => {
 
       const account = getOrCreateAccount(data, targetUser.id);
       const changed = updateWithdrawableDepositsForAccount(account);
-      if (changed) persist();
+      if (changed) await persist();
 
       const summary = getAccountSummary(account);
       const logs = [...(account.transactions || [])].reverse();
@@ -1535,7 +1535,7 @@ client.on("interactionCreate", async (interaction) => {
         ? "banker"
         : "high_authority";
 
-      const tx = createPendingDepositObject({
+      const tx = await createPendingDepositObject({
         userId: user.id,
         createdBy: interaction.user.id,
         amount,
@@ -1545,7 +1545,6 @@ client.on("interactionCreate", async (interaction) => {
         source: "manual",
       });
 
-      persist();
       await postPendingDeposit(tx, interaction.guild);
 
       return interaction.reply({
@@ -1607,7 +1606,7 @@ client.on("interactionCreate", async (interaction) => {
       };
 
       updateTreasury(data, amount, { reason: "fee", userId: user.id });
-      persist();
+      await persist();
 
       await sendTreasuryEmbed(
         `${formatMoney(amount)} was added to The Consortium Treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`
@@ -1688,7 +1687,7 @@ client.on("interactionCreate", async (interaction) => {
       fee.reversed = true;
       fee.reversedAt = nowIso();
       fee.reversedBy = interaction.user.id;
-      persist();
+      await persist();
 
       await sendTreasuryEmbed(
         `${formatMoney(fee.amount)} was removed from The Consortium Treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`
@@ -1731,7 +1730,7 @@ client.on("interactionCreate", async (interaction) => {
 
       const amount = interaction.options.getInteger("amount", true);
       updateTreasury(data, amount, { reason: "sovereign_donation", by: interaction.user.id });
-      persist();
+      await persist();
 
       await sendTreasuryEmbed(
         `MemeEgg donated ${formatMoney(amount)} to The Consortium Treasury!\nNew Treasury Balance: ${formatMoney(data.treasury)}\nTHANK YOU MEMEEGG!`
@@ -1754,7 +1753,7 @@ client.on("interactionCreate", async (interaction) => {
   const amount = interaction.options.getInteger("amount", true);
   const account = getOrCreateAccount(data, interaction.user.id);
   const changed = updateWithdrawableDepositsForAccount(account);
-  if (changed) persist();
+  if (changed) await persist();
 
   const issues = getWithdrawalEligibility(account, amount);
   if (issues.length) {
@@ -1803,7 +1802,7 @@ if (commandName === "staffwithdraw") {
 
   const account = getOrCreateAccount(data, user.id);
   const changed = updateWithdrawableDepositsForAccount(account);
-  if (changed) persist();
+  if (changed) await persist();
 
   if (Number(account.balance || 0) < amount) {
     return interaction.reply({
@@ -1842,7 +1841,7 @@ if (commandName === "staffwithdraw") {
   });
 
   data.treasury -= amount;
-  persist();
+  await persist();
 
   await sendTreasuryEmbed(
     `${formatMoney(amount)} was withdrawn from the treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`
@@ -1892,7 +1891,7 @@ if (commandName === "treasuryremove") {
   }
 
   data.treasury -= amount;
-  persist();
+  await persist();
 
   await sendTreasuryEmbed(
     `${formatMoney(amount)} was withdrawn from the treasury.\nNew Treasury Balance: ${formatMoney(data.treasury)}`
@@ -1998,7 +1997,7 @@ client.on("messageCreate", async (message) => {
       if (application.questionIndex >= config.setup.applicationQuestions.length) {
         application.status = "submitted";
         application.submittedAt = nowIso();
-        persist();
+        await persist();
 
         const summaryLines = config.setup.applicationQuestions.map(q => {
           const answer = application.answers[q.key] || "No answer";
@@ -2019,7 +2018,7 @@ client.on("messageCreate", async (message) => {
         return;
       }
 
-      persist();
+      await persist();
       const nextQuestion = config.setup.applicationQuestions[application.questionIndex];
       return message.channel.send({
         content: `**Question ${application.questionIndex + 1}/${config.setup.applicationQuestions.length}:** ${nextQuestion.question}`
@@ -2062,12 +2061,12 @@ client.on("messageCreate", async (message) => {
                 messageId: null,
               };
               data.eventDepositTasks[taskId] = task;
-              persist();
+              await persist();
 
               const taskMsg = await sendEventLoggingTask(task);
               if (taskMsg) {
                 data.eventDepositTasks[taskId].messageId = taskMsg.id;
-                persist();
+                await persist();
               }
             }
           }
@@ -2124,7 +2123,7 @@ client.on("messageCreate", async (message) => {
               }
             }
 
-            persist();
+            await persist();
           }
         }
 
@@ -2132,7 +2131,7 @@ client.on("messageCreate", async (message) => {
       }
 
       delete data.applications[`TEMP_EVENT_EDIT_${message.author.id}`];
-      persist();
+      await persist();
     }
   } catch (error) {
     console.error("messageCreate handler error:", error);
