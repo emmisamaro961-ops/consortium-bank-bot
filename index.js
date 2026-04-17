@@ -1357,7 +1357,7 @@ client.on("interactionCreate", async (interaction) => {
       if (!isBankStaff(interaction.member)) {
         return interaction.reply({
           embeds: [buildErrorEmbed("Only bank staff can use this command.")],
-          ephemeral: true,
+          ephemeral: false,
         });
       }
 
@@ -1369,7 +1369,7 @@ client.on("interactionCreate", async (interaction) => {
 
       return interaction.reply({
         embeds: [buildSuccessEmbed(`Opened a Consortium Bank account for ${user}.`)],
-        ephemeral: true,
+        ephemeral: false,
       });
     }
 
@@ -1391,7 +1391,7 @@ client.on("interactionCreate", async (interaction) => {
 
       return interaction.reply({
         embeds: [buildSuccessEmbed(`Closed ${user}'s account.${tax25 ? ` Treasury received ${formatMoney(result.taxedAmount)}.` : ""}`)],
-        ephemeral: true,
+        ephemeral: false,
       });
     }
 
@@ -1408,7 +1408,7 @@ client.on("interactionCreate", async (interaction) => {
       if (!hasActiveAccount(data, targetUser.id)) {
         return interaction.reply({
           embeds: [buildErrorEmbed("This user does not have an active bank account")],
-          ephemeral: true,
+          ephemeral: false,
         });
       }
 
@@ -1440,7 +1440,7 @@ client.on("interactionCreate", async (interaction) => {
       if (targetUser.id !== interaction.user.id && !isBankStaff(interaction.member)) {
         return interaction.reply({
           embeds: [buildErrorEmbed("Only bank staff can view another member's account.")],
-          ephemeral: true,
+          ephemeral: false,
         });
       }
 
@@ -1522,7 +1522,7 @@ client.on("interactionCreate", async (interaction) => {
       if (hasDepositCooldown(data, user.id)) {
         return interaction.reply({
           embeds: [buildErrorEmbed(`A deposit has been made to this user within the last 60 seconds, please try again soon. (${getDepositCooldownRemaining(data, user.id)}s remaining)`)],
-          ephemeral: true,
+          ephemeral: false,
         });
       }
 
@@ -1549,7 +1549,7 @@ client.on("interactionCreate", async (interaction) => {
 
       return interaction.reply({
         embeds: [buildSuccessEmbed(`Deposit request ${tx.txId} created and sent to pending approval.`)],
-        ephemeral: true,
+        ephemeral: false,
       });
     }
 
@@ -1778,7 +1778,7 @@ client.on("interactionCreate", async (interaction) => {
         )
         .setTimestamp()
     ],
-    ephemeral: true,
+    ephemeral: false,
   });
 }
 
@@ -1807,14 +1807,14 @@ if (commandName === "staffwithdraw") {
   if (Number(account.balance || 0) < amount) {
     return interaction.reply({
       embeds: [buildErrorEmbed("This account does not have enough balance for that withdrawal.")],
-      ephemeral: true,
+      ephemeral: false,
     });
   }
 
   if (Number(account.withdrawableBalance || 0) < amount) {
     return interaction.reply({
       embeds: [buildErrorEmbed("This account does not have enough withdrawable balance for that withdrawal.")],
-      ephemeral: true,
+      ephemeral: false,
     });
   }
 
