@@ -605,6 +605,7 @@ function buildHelpEmbedForMember(interaction) {
           "",
           "**Bank Staff Commands**",
           "`/deposit` - create a deposit request",
+          "`/leaderboard` - view the top 10 bank balances (Richest Members)",
           "`/fee` - charge a fee",
           "`/undofee` - reverse a fee",
           "`/create_bank_account` - open an account",
@@ -1336,6 +1337,33 @@ client.on("interactionCreate", async (interaction) => {
         });
       }
     }
+
+    if (commandName === "leaderboard") {
+  const entries = Object.entries(data.accounts)
+    .filter(([, account]) => account && account.status === "active")
+    .map(([userId, account]) => ({
+      userId,
+      balance: Number(account.balance || 0),
+    }))
+    .sort((a, b) => b.balance - a.balance)
+    .slice(0, 10);
+
+  const description = entries.length
+    ? entries
+        .map((entry, index) => `**${index + 1}.** <@${entry.userId}> — ${formatMoney(entry.balance)}`)
+        .join("\n")
+    : "No active bank accounts found.";
+
+  const embed = new EmbedBuilder()
+    .setColor(config.colors.info)
+    .setTitle("🏆 Consortium Bank Leaderboard")
+    .setDescription(description)
+    .setTimestamp();
+
+  return interaction.reply({
+    embeds: [embed],
+  });
+}
 
     if (commandName === "help") {
       const isStaff = isBankStaff(interaction.member);
