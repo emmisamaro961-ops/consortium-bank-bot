@@ -12,8 +12,6 @@ const {
 
 const config = require("./config");
 const {
-  loadData,
-  saveData,
   nowIso,
   generateId,
   getMemberRoleState,
@@ -44,6 +42,8 @@ const {
   getAccountSummary,
   chunkArray,
 } = require("./utils");
+
+const { initDatabase, loadData, saveData } = require("./database");
 
 const client = new Client({
   intents: [
