@@ -949,7 +949,7 @@ async function maybeHandleBoosterMembershipUpdate(oldMember, newMember) {
       await sendConsortiumBankEmbed(publicEmbed);
 
       const txEmbed = new EmbedBuilder()
-        .setColor(config.colors.info)
+        .setColor(config.colors.boost)
         .setTitle("🧾 Boost Reward Granted")
         .setDescription(`<@${userId}> received an immediate boost reward.`)
         .setTimestamp();
