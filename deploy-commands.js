@@ -61,7 +61,7 @@ const commands = [
 
   new SlashCommandBuilder()
   .setName("leaderboard")
-  .setDescription("View the top 10 bank account balances")
+  .setDescription("View the top 10 bank account balances"),
   
   new SlashCommandBuilder()
   .setName("staffwithdraw")
