@@ -58,6 +58,10 @@ const commands = [
     .addIntegerOption(option =>
       option.setName("amount").setDescription("Amount to withdraw").setRequired(true).setMinValue(1)
     ),
+
+  new SlashCommandBuilder()
+  .setName("leaderboard")
+  .setDescription("View the top 10 bank account balances")
   
   new SlashCommandBuilder()
   .setName("staffwithdraw")
