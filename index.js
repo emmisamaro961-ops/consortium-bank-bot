@@ -1022,6 +1022,9 @@ async function maybeHandleBoosterMembershipUpdate(oldMember, newMember) {
 }
 
 client.once("clientReady", async () => {
+  await initDatabase();
+  data = loadData();
+
   console.log(`🏦 ${client.user.tag} is online`);
 
   for (const account of Object.values(data.accounts)) {
