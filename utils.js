@@ -123,6 +123,7 @@ function publicCommandNames() {
     "account",
     "balance",
     "help",
+    "leaderboard",
   ]);
 }
 
