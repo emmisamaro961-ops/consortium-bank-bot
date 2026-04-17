@@ -30,15 +30,15 @@ module.exports = {
   },
 
   colors: {
-    treasury: 0xe24144,
-    deposit: 0x2ecc71,
-    withdrawal: 0xeacc53,
-    error: 0xe24144,
-    success: 0x2ecc71,
-    info: 0x5865f2,
-    neutral: 0xf1c40f,
-	boost: 0xf47fff,
-  },
+  treasury: 0xe24144,
+  deposit: 0x2ecc71,
+  withdrawal: 0xeacc53,
+  error: 0xe24144,
+  success: 0x2ecc71,
+  info: 0x5865f2,
+  neutral: 0xf1c40f,
+  boost: 0xf47fff,
+},
 
   economy: {
     minimumDeposit: 5,
