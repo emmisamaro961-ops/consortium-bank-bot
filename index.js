@@ -1390,7 +1390,7 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       return interaction.reply({
-        embeds: [buildSuccessEmbed(`TEST BUILD: Closed ${user}'s account.${tax25 ? ` Treasury received ${formatMoney(result.taxedAmount)}.` : ""}`)],
+        embeds: [buildSuccessEmbed(`Closed ${user}'s account.${tax25 ? ` Treasury received ${formatMoney(result.taxedAmount)}.` : ""}`)],
         ephemeral: true,
       });
     }
