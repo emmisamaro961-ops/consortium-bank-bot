@@ -1354,7 +1354,7 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (commandName === "create_bank_account") {
-      if (!isHighAuthority(interaction.member)) {
+      if (!isBankStaff(interaction.member)) {
         return interaction.reply({
           embeds: [buildErrorEmbed("Only the Consortium Sovereign or Bank Director can use this command.")],
           ephemeral: true,
