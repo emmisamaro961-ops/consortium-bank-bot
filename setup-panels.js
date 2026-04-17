@@ -9,7 +9,7 @@ const {
 } = require("discord.js");
 
 const config = require("./config");
-const { loadData, saveData } = require("./utils");
+const { initDatabase, loadData, saveData } = require("./database");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -17,6 +17,7 @@ const client = new Client({
 
 client.once("ready", async () => {
   try {
+    await initDatabase();
     console.log(`Connected as ${client.user.tag}`);
     const data = loadData();
 
