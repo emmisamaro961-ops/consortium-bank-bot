@@ -77,6 +77,44 @@ function parseMentions(text) {
   return [...new Set(matches.map(m => m[1]))];
 }
 
+function pruneVoiceAttendance(channelId) {
+  if (!data.voiceAttendance[channelId]) return;
+
+  const cutoff = Date.now() - (3 * 60 * 60 * 1000); // 3 hours
+  for (const [userId, record] of Object.entries(data.voiceAttendance[channelId])) {
+    if ((record.lastSeen || 0) < cutoff) {
+      delete data.voiceAttendance[channelId][userId];
+    }
+  }
+
+  if (Object.keys(data.voiceAttendance[channelId]).length === 0) {
+    delete data.voiceAttendance[channelId];
+  }
+}
+
+function markVoiceAttendance(channelId, userId) {
+  if (!data.voiceAttendance[channelId]) {
+    data.voiceAttendance[channelId] = {};
+  }
+
+  const now = Date.now();
+  const existing = data.voiceAttendance[channelId][userId] || {};
+
+  data.voiceAttendance[channelId][userId] = {
+    firstSeen: existing.firstSeen || now,
+    lastSeen: now,
+  };
+
+  pruneVoiceAttendance(channelId);
+}
+
+function getRecentVoiceAttendees(channelId) {
+  pruneVoiceAttendance(channelId);
+
+  const records = data.voiceAttendance[channelId] || {};
+  return Object.keys(records);
+}
+
 function reasonLabel(reason, otherReason = null) {
   switch (reason) {
     case "event":
@@ -804,7 +842,13 @@ async function createEventLog(interaction) {
   const notes = interaction.options.getString("notes") || "None";
 
   const eventId = generateId("EVT");
-  const attendeeIds = [...voiceChannel.members.keys()];
+  const currentAttendeeIds = [...voiceChannel.members.keys()];
+const recentAttendeeIds = getRecentVoiceAttendees(voiceChannel.id);
+
+const attendeeIds = [...new Set([
+  ...currentAttendeeIds,
+  ...recentAttendeeIds,
+])];
   const hostIds = parseMentions(hostsInput);
   const mvpIds = mvpsInput.toLowerCase() === "none" ? [] : parseMentions(mvpsInput);
 
@@ -1047,6 +1091,24 @@ client.on("guildMemberRemove", async (member) => {
 
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
   await maybeHandleBoosterMembershipUpdate(oldMember, newMember).catch(console.error);
+});
+
+client.on("voiceStateUpdate", async (oldState, newState) => {
+  try {
+    reloadData();
+
+    if (oldState.channelId) {
+      markVoiceAttendance(oldState.channelId, oldState.id);
+    }
+
+    if (newState.channelId) {
+      markVoiceAttendance(newState.channelId, newState.id);
+    }
+
+    await persist();
+  } catch (error) {
+    console.error("voiceStateUpdate tracking failed:", error);
+  }
 });
 
 client.on("interactionCreate", async (interaction) => {
