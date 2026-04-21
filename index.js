@@ -45,6 +45,8 @@ const {
 
 const { initDatabase, loadData, saveData } = require("./database");
 
+const MIN_VC_TIME = 25 * 60 * 1000; // 25 minutes
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -112,7 +114,18 @@ function getRecentVoiceAttendees(channelId) {
   pruneVoiceAttendance(channelId);
 
   const records = data.voiceAttendance[channelId] || {};
-  return Object.keys(records);
+
+  const qualifiedUsers = [];
+
+  for (const [userId, record] of Object.entries(records)) {
+    const timeSpent = (record.lastSeen || 0) - (record.firstSeen || 0);
+
+    if (timeSpent >= MIN_VC_TIME) {
+      qualifiedUsers.push(userId);
+    }
+  }
+
+  return qualifiedUsers;
 }
 
 function reasonLabel(reason, otherReason = null) {
@@ -845,10 +858,21 @@ async function createEventLog(interaction) {
   const currentAttendeeIds = [...voiceChannel.members.keys()];
 const recentAttendeeIds = getRecentVoiceAttendees(voiceChannel.id);
 
+const now = Date.now();
+
+const qualifiedCurrent = currentAttendeeIds.filter(userId => {
+  const record = data.voiceAttendance[voiceChannel.id]?.[userId];
+  if (!record) return false;
+
+  const timeSpent = now - record.firstSeen;
+  return timeSpent >= MIN_VC_TIME;
+});
+
 const attendeeIds = [...new Set([
-  ...currentAttendeeIds,
+  ...qualifiedCurrent,
   ...recentAttendeeIds,
 ])];
+  
   const hostIds = parseMentions(hostsInput);
   const mvpIds = mvpsInput.toLowerCase() === "none" ? [] : parseMentions(mvpsInput);
 
