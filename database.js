@@ -31,6 +31,7 @@ function createDefaultData() {
     applications: {},
     eventDepositTasks: {},
     boostHistory: {},
+    voiceAttendance: {},
   };
 }
 
