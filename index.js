@@ -871,7 +871,10 @@ const qualifiedCurrent = currentAttendeeIds.filter(userId => {
 const attendeeIds = [...new Set([
   ...qualifiedCurrent,
   ...recentAttendeeIds,
-])];
+])].filter(userId => {
+  const member = interaction.guild.members.cache.get(userId);
+  return member && !member.user.bot;
+});
   
   const hostIds = parseMentions(hostsInput);
   const mvpIds = mvpsInput.toLowerCase() === "none" ? [] : parseMentions(mvpsInput);
@@ -904,19 +907,20 @@ const attendeeIds = [...new Set([
   const hostText = hostIds.length ? hostIds.map(id => `<@${id}>`).join(", ") : "None";
 
   const embed = new EmbedBuilder()
-    .setColor(config.colors.info)
-    .setTitle(`📣 ${eventType}`)
-    .addFields(
-      { name: "Event ID", value: eventId, inline: true },
-      { name: "Hosts", value: hostText, inline: false },
-      { name: "Attendees", value: attendeeText, inline: false },
-      { name: "MVP(s)", value: mvpText, inline: false },
-      { name: "Event Points", value: `${points}`, inline: true },
-      { name: "MVP Points", value: `${mvpPoints}`, inline: true },
-      { name: "Event Bank Deposit", value: `${config.economy.eventDepositAttendee}`, inline: true },
-      { name: "MVP Bank Deposit", value: `${config.economy.eventDepositMvp}`, inline: true },
-      { name: "Notes", value: notes || "None", inline: false }
-    )
+  .setColor(config.colors.info)
+  .setTitle(`📣 ${eventType}`)
+  .addFields(
+    { name: "Event ID", value: eventId, inline: true },
+    { name: "Rally Count", value: `${attendeeIds.length}`, inline: true },
+    { name: "Hosts", value: hostText, inline: false },
+    { name: "Attendees", value: attendeeText, inline: false },
+    { name: "MVP(s)", value: mvpText, inline: false },
+    { name: "Event Points", value: `${points}`, inline: true },
+    { name: "MVP Points", value: `${mvpPoints}`, inline: true },
+    { name: "Event Bank Deposit", value: `${config.economy.eventDepositAttendee}`, inline: true },
+    { name: "MVP Bank Deposit", value: `${config.economy.eventDepositMvp}`, inline: true },
+    { name: "Notes", value: notes || "None", inline: false }
+  )
     .setFooter({ text: `Logged by ${interaction.user.tag}` })
     .setTimestamp();
 
