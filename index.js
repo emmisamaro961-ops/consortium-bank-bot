@@ -8,9 +8,6 @@ const {
   ButtonBuilder,
   ButtonStyle,
   PermissionsBitField,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
 } = require("discord.js");
 
 const config = require("./config");
@@ -773,75 +770,6 @@ function updateWithdrawableDepositsForAccount(account) {
   return updated;
 }
 
-function parseUserIdsFromInput(text) {
-  if (!text || typeof text !== "string") return [];
-
-  const mentionIds = [...text.matchAll(/<@!?(\d+)>/g)].map(m => m[1]);
-  const rawIds = [...text.matchAll(/\b\d{17,20}\b/g)].map(m => m[0]);
-
-  return [...new Set([...mentionIds, ...rawIds])];
-}
-
-function formatMentionList(ids) {
-  if (!ids || !ids.length) return "None";
-
-  const mentions = ids.map(id => `<@${id}>`);
-  let result = "";
-
-  for (const mention of mentions) {
-    const next = result ? `${result}, ${mention}` : mention;
-    if (next.length > 1024) break;
-    result = next;
-  }
-
-  if (!result) {
-    return `${mentions[0]}\n...and ${mentions.length - 1} more`;
-  }
-
-  const shownCount = result.split(", ").length;
-  const remaining = mentions.length - shownCount;
-
-  return remaining > 0 ? `${result}\n...and ${remaining} more` : result;
-}
-
-function safeFieldText(text, max = 1024) {
-  if (!text) return "None";
-  return text.length > max ? `${text.slice(0, max - 12)}...` : text;
-}
-
-async function refreshEventLogMessage(guild, event) {
-  const loggingCamp = await client.channels.fetch(config.channels.loggingCamp).catch(() => null);
-  if (!loggingCamp || !event.loggingCampMessageId) return;
-
-  const msg = await loggingCamp.messages.fetch(event.loggingCampMessageId).catch(() => null);
-  if (!msg) return;
-
-  const attendeeText = formatMentionList(event.attendeeIds);
-  const mvpText = formatMentionList(event.mvpIds);
-  const hostText = formatMentionList(event.hostIds);
-  const notesText = safeFieldText(event.notes || "None");
-
-  const embed = new EmbedBuilder()
-    .setColor(config.colors.info)
-    .setTitle(`📣 ${event.eventType}`)
-    .addFields(
-      { name: "Event ID", value: String(event.id), inline: true },
-      { name: "Rally Count", value: String(event.attendeeIds.length), inline: true },
-      { name: "Hosts", value: hostText, inline: false },
-      { name: "Attendees", value: attendeeText, inline: false },
-      { name: "MVP(s)", value: mvpText, inline: false },
-      { name: "Event Points", value: String(event.points), inline: true },
-      { name: "MVP Points", value: String(event.mvpPoints), inline: true },
-      { name: "Event Bank Deposit", value: String(config.economy.eventDepositAttendee), inline: true },
-      { name: "MVP Bank Deposit", value: String(config.economy.eventDepositMvp), inline: true },
-      { name: "Notes", value: notesText, inline: false }
-    )
-    .setFooter({ text: `Logged by ${event.createdBy}`.slice(0, 2048) })
-    .setTimestamp(new Date(event.createdAt));
-
-  await msg.edit({ embeds: [embed] });
-}
-
 function getWithdrawalEligibility(account, requestedAmount) {
   const issues = [];
   const accountAgeDays = daysBetween(account.createdAt);
@@ -943,10 +871,7 @@ const qualifiedCurrent = currentAttendeeIds.filter(userId => {
 const attendeeIds = [...new Set([
   ...qualifiedCurrent,
   ...recentAttendeeIds,
-])].filter(userId => {
-  const member = interaction.guild.members.cache.get(userId);
-  return member && !member.user.bot;
-});
+])];
   
   const hostIds = parseMentions(hostsInput);
   const mvpIds = mvpsInput.toLowerCase() === "none" ? [] : parseMentions(mvpsInput);
@@ -974,26 +899,24 @@ const attendeeIds = [...new Set([
     throw new Error("Logging camp channel is unavailable.");
   }
 
-  const attendeeText = formatMentionList(attendeeIds);
-const mvpText = formatMentionList(mvpIds);
-const hostText = formatMentionList(hostIds);
-const notesText = safeFieldText(notes || "None");
+  const attendeeText = attendeeIds.length ? attendeeIds.map(id => `<@${id}>`).join(", ") : "None";
+  const mvpText = mvpIds.length ? mvpIds.map(id => `<@${id}>`).join(", ") : "None";
+  const hostText = hostIds.length ? hostIds.map(id => `<@${id}>`).join(", ") : "None";
 
   const embed = new EmbedBuilder()
-  .setColor(config.colors.info)
-  .setTitle(`📣 ${eventType}`)
-  .addFields(
-    { name: "Event ID", value: eventId, inline: true },
-    { name: "Rally Count", value: `${attendeeIds.length}`, inline: true },
-    { name: "Hosts", value: hostText, inline: false },
-    { name: "Attendees", value: attendeeText, inline: false },
-    { name: "MVP(s)", value: mvpText, inline: false },
-    { name: "Event Points", value: `${points}`, inline: true },
-    { name: "MVP Points", value: `${mvpPoints}`, inline: true },
-    { name: "Event Bank Deposit", value: `${config.economy.eventDepositAttendee}`, inline: true },
-    { name: "MVP Bank Deposit", value: `${config.economy.eventDepositMvp}`, inline: true },
-    { name: "Notes", value: notesText, inline: false }
-  )
+    .setColor(config.colors.info)
+    .setTitle(`📣 ${eventType}`)
+    .addFields(
+      { name: "Event ID", value: eventId, inline: true },
+      { name: "Hosts", value: hostText, inline: false },
+      { name: "Attendees", value: attendeeText, inline: false },
+      { name: "MVP(s)", value: mvpText, inline: false },
+      { name: "Event Points", value: `${points}`, inline: true },
+      { name: "MVP Points", value: `${mvpPoints}`, inline: true },
+      { name: "Event Bank Deposit", value: `${config.economy.eventDepositAttendee}`, inline: true },
+      { name: "MVP Bank Deposit", value: `${config.economy.eventDepositMvp}`, inline: true },
+      { name: "Notes", value: notes || "None", inline: false }
+    )
     .setFooter({ text: `Logged by ${interaction.user.tag}` })
     .setTimestamp();
 
@@ -1194,12 +1117,30 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
   await maybeHandleBoosterMembershipUpdate(oldMember, newMember).catch(console.error);
 });
 
-        client.on("interactionCreate", async (interaction) => {
+client.on("voiceStateUpdate", async (oldState, newState) => {
+  try {
+    reloadData();
+
+    if (oldState.channelId) {
+      markVoiceAttendance(oldState.channelId, oldState.id);
+    }
+
+    if (newState.channelId) {
+      markVoiceAttendance(newState.channelId, newState.id);
+    }
+
+    await persist();
+  } catch (error) {
+    console.error("voiceStateUpdate tracking failed:", error);
+  }
+});
+
+client.on("interactionCreate", async (interaction) => {
   try {
     reloadData();
 
     if (interaction.isButton()) {
-      const customId = interaction.customIdf;
+      const customId = interaction.customId;
 
       if (customId === "start_bank_account_application") {
         if (hasActiveAccount(data, interaction.user.id)) {
@@ -1209,32 +1150,6 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
           });
         }
 
-        // rest of your code continues here...
-      }
-
-      // more button code...
-    }
-
-    // modal code...
-    // slash command code...
-
-  } catch (error) {
-    console.error("interactionCreate error:", error);
-
-    if (interaction.replied || interaction.deferred) {
-      return interaction.followUp({
-        embeds: [buildErrorEmbed(`An error occurred: ${error.message}`)],
-        ephemeral: true,
-      }).catch(() => null);
-    }
-
-    return interaction.reply({
-      embeds: [buildErrorEmbed(`An error occurred: ${error.message}`)],
-      ephemeral: true,
-    }).catch(() => null);
-  }
-});
-        
         const applicationsChannel = await client.channels.fetch(config.channels.accountApplications).catch(() => null);
         if (!applicationsChannel || applicationsChannel.type !== ChannelType.GuildText) {
           return interaction.reply({
@@ -1406,7 +1321,7 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
             new EmbedBuilder()
               .setColor(config.colors.info)
               .setTitle("✏️ Event Editor")
-              .setDescription("Use the buttons below to privately add or remove attendees from this event log.")
+              .setDescription("Use the buttons below. This editor is only visible to you.\n\nBecause Discord buttons cannot open freeform user pickers by themselves, I’ll use the next typed message you send in this channel as the target mention(s).")
           ],
           components: [row],
           ephemeral: true,
@@ -1414,33 +1329,33 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
       }
 
       if (customId.startsWith("event_add_") || customId.startsWith("event_remove_")) {
-  const mode = customId.startsWith("event_add_") ? "add" : "remove";
-  const eventId = customId.replace(`event_${mode}_`, "");
-  const event = data.events[eventId];
+        const mode = customId.startsWith("event_add_") ? "add" : "remove";
+        const eventId = customId.replace(`event_${mode}_`, "");
+        const event = data.events[eventId];
+        if (!event) {
+          return interaction.reply({
+            embeds: [buildErrorEmbed("Event could not be found.")],
+            ephemeral: true,
+          });
+        }
 
-  if (!event) {
-    return interaction.reply({
-      embeds: [buildErrorEmbed("Event could not be found.")],
-      ephemeral: true,
-    });
-  }
+        data.applications[`TEMP_EVENT_EDIT_${interaction.user.id}`] = {
+          mode,
+          eventId,
+          expiresAt: Date.now() + 120000,
+        };
+        await persist();
 
-  const modal = new ModalBuilder()
-    .setCustomId(`event_edit_modal_${mode}_${eventId}`)
-    .setTitle(`${mode === "add" ? "Add" : "Remove"} Event Attendee`);
-
-  const attendeeInput = new TextInputBuilder()
-    .setCustomId("attendee_input")
-    .setLabel("User ID, @mention, or multiple separated by spaces")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setPlaceholder("123456789012345678 or @User");
-
-  const row = new ActionRowBuilder().addComponents(attendeeInput);
-  modal.addComponents(row);
-
-  return interaction.showModal(modal);
-}
+        return interaction.reply({
+          embeds: [
+            buildInfoEmbed(
+              "Event Edit Pending",
+              `Please send the user mention(s) in this channel within 2 minutes. I will ${mode} them from event ${eventId}.`
+            )
+          ],
+          ephemeral: true,
+        });
+      }
 
       if (customId.startsWith("eventdeposit_complete_")) {
         const taskId = customId.replace("eventdeposit_complete_", "");
@@ -1485,95 +1400,6 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
       }
     }
 
-if (interaction.isModalSubmit()) {
-  if (interaction.customId.startsWith("event_edit_modal_")) {
-    const [, , , mode, eventId] = interaction.customId.split("_");
-    const event = data.events[eventId];
-
-    if (!event) {
-      return interaction.reply({
-        embeds: [buildErrorEmbed("Event could not be found.")],
-        ephemeral: true,
-      });
-    }
-
-    if (!canUseEventCommands(interaction.member)) {
-      return interaction.reply({
-        embeds: [buildErrorEmbed("You are not allowed to edit this event log.")],
-        ephemeral: true,
-      });
-    }
-
-    const input = interaction.fields.getTextInputValue("attendee_input");
-    const userIds = parseUserIdsFromInput(input);
-
-    if (!userIds.length) {
-      return interaction.reply({
-        embeds: [buildErrorEmbed("Please enter at least one valid user ID or mention.")],
-        ephemeral: true,
-      });
-    }
-
-    if (mode === "add") {
-      for (const userId of userIds) {
-        if (!event.attendeeIds.includes(userId)) {
-          event.attendeeIds.push(userId);
-
-          const isMvp = event.mvpIds.includes(userId);
-          const awardedPoints = isMvp ? event.mvpPoints : event.points;
-          await logPointsChange(userId, awardedPoints, interaction.user.id, "event_add", isMvp);
-
-          if (hasActiveAccount(data, userId)) {
-            const amount = isMvp ? config.economy.eventDepositMvp : config.economy.eventDepositAttendee;
-            const taskId = generateId("EVDEP");
-
-            data.eventDepositTasks[taskId] = {
-              taskId,
-              eventId: event.id,
-              userId,
-              userMention: `<@${userId}>`,
-              amount,
-              status: "pending",
-              createdAt: nowIso(),
-              completedBy: null,
-              completedAt: null,
-              messageId: null,
-            };
-
-            await persist();
-
-            const taskMsg = await sendEventLoggingTask(data.eventDepositTasks[taskId]);
-            if (taskMsg) {
-              data.eventDepositTasks[taskId].messageId = taskMsg.id;
-              await persist();
-            }
-          }
-        }
-      }
-    }
-
-    if (mode === "remove") {
-      for (const userId of userIds) {
-        if (event.attendeeIds.includes(userId)) {
-          event.attendeeIds = event.attendeeIds.filter(id => id !== userId);
-
-          const isMvp = event.mvpIds.includes(userId);
-          const awardedPoints = isMvp ? event.mvpPoints : event.points;
-          await logPointsChange(userId, -awardedPoints, interaction.user.id, "event_remove", isMvp);
-        }
-      }
-    }
-
-    await persist();
-    await refreshEventLogMessage(interaction.guild, event);
-
-    return interaction.reply({
-      embeds: [buildSuccessEmbed(`Event ${eventId} updated successfully.`)],
-      ephemeral: true,
-    });
-  }
-}
-    
     if (!interaction.isChatInputCommand()) return;
 
     const commandName = interaction.commandName;
@@ -2313,72 +2139,113 @@ client.on("messageCreate", async (message) => {
       });
     }
 
- } catch (error) {
-    console.error(error);
+    // Temporary event edit flow
+    const tempEdit = data.applications[`TEMP_EVENT_EDIT_${message.author.id}`];
+    if (tempEdit && tempEdit.expiresAt > Date.now()) {
+      const event = data.events[tempEdit.eventId];
+      if (!event) return;
 
-    if (interaction.replied || interaction.deferred) {
-      return interaction.followUp({
-        embeds: [buildErrorEmbed(`An error occurred: ${error.message}`)],
-        ephemeral: true,
-      }).catch(() => null);
-    }
-
-    return interaction.reply({
-      embeds: [buildErrorEmbed(`An error occurred: ${error.message}`)],
-      ephemeral: true,
-    }).catch(() => null);
-  }
-});
-
-client.on("messageCreate", async (message) => {
-  try {
-    if (message.author.bot) return;
-    if (!message.guild) return;
-
-    reloadData();
-
-    const application = Object.values(data.applications).find(app =>
-      app.threadId === message.channel.id &&
-      app.userId === message.author.id &&
-      app.status === "collecting"
-    );
-
-    if (application) {
-      const question = config.setup.applicationQuestions[application.questionIndex];
-      if (!question) return;
-
-      application.answers[question.key] = message.content.trim();
-      application.questionIndex += 1;
-
-      if (application.questionIndex >= config.setup.applicationQuestions.length) {
-        application.status = "submitted";
-        application.submittedAt = nowIso();
-        await persist();
-
-        const summaryLines = config.setup.applicationQuestions.map(q => {
-          const answer = application.answers[q.key] || "No answer";
-          return `**${q.question}**\n${answer}`;
-        });
-
-        const embed = new EmbedBuilder()
-          .setColor(config.colors.info)
-          .setTitle("🗃️ Application Submitted")
-          .setDescription(summaryLines.join("\n\n"))
-          .setTimestamp();
-
-        await message.channel.send({
-          content: `Application Submitted. ${getGuildRoleMention(config.roles.sovereign)} or ${getGuildRoleMention(config.roles.director)} will review your application.`,
-          embeds: [embed],
-        });
-
+      const mentionedIds = parseMentions(message.content);
+      if (!mentionedIds.length) {
+        await message.reply("Please mention at least one user.");
         return;
       }
 
+      if (tempEdit.mode === "add") {
+        for (const userId of mentionedIds) {
+          if (!event.attendeeIds.includes(userId)) {
+            event.attendeeIds.push(userId);
+            const isMvp = event.mvpIds.includes(userId);
+            const points = isMvp ? event.mvpPoints : event.points;
+            await logPointsChange(userId, points, message.author.id, "event_add", isMvp);
+
+            if (hasActiveAccount(data, userId)) {
+              const amount = isMvp ? config.economy.eventDepositMvp : config.economy.eventDepositAttendee;
+              const taskId = generateId("EVDEP");
+              const task = {
+                taskId,
+                eventId: event.id,
+                userId,
+                userMention: `<@${userId}>`,
+                amount,
+                status: "pending",
+                createdAt: nowIso(),
+                completedBy: null,
+                completedAt: null,
+                messageId: null,
+              };
+              data.eventDepositTasks[taskId] = task;
+              await persist();
+
+              const taskMsg = await sendEventLoggingTask(task);
+              if (taskMsg) {
+                data.eventDepositTasks[taskId].messageId = taskMsg.id;
+                await persist();
+              }
+            }
+          }
+        }
+
+        await message.reply("Attendee(s) added to the event log.");
+      } else if (tempEdit.mode === "remove") {
+        for (const userId of mentionedIds) {
+          if (event.attendeeIds.includes(userId)) {
+            event.attendeeIds = event.attendeeIds.filter(id => id !== userId);
+            const isMvp = event.mvpIds.includes(userId);
+            const points = isMvp ? event.mvpPoints : event.points;
+            await logPointsChange(userId, -points, message.author.id, "event_remove", isMvp);
+
+            const relatedTasks = Object.values(data.eventDepositTasks).filter(task =>
+              task.eventId === event.id && task.userId === userId
+            );
+
+            for (const task of relatedTasks) {
+              if (task.status === "pending") {
+                task.status = "voided";
+                task.voidedAt = nowIso();
+
+                const channel = await client.channels.fetch(config.channels.eventLogging).catch(() => null);
+                if (channel && task.messageId) {
+                  const msg = await channel.messages.fetch(task.messageId).catch(() => null);
+                  if (msg) {
+                    const embed = new EmbedBuilder()
+                      .setColor(config.colors.error)
+                      .setTitle("📅 Event Deposit Voided")
+                      .setDescription(`<@${userId}> was removed from the event log.\nThis deposit has been voided.`)
+                      .setTimestamp();
+
+                    await msg.edit({ embeds: [embed], components: [] }).catch(() => null);
+                  }
+                }
+              } else if (task.status === "completed") {
+                task.status = "needs_review";
+                task.reviewFlaggedAt = nowIso();
+
+                const channel = await client.channels.fetch(config.channels.eventLogging).catch(() => null);
+                if (channel && task.messageId) {
+                  const msg = await channel.messages.fetch(task.messageId).catch(() => null);
+                  if (msg) {
+                    const embed = new EmbedBuilder()
+                      .setColor(config.colors.error)
+                      .setTitle("📅 Reversal Review Required")
+                      .setDescription(`<@${userId}> was removed from the event log after their deposit had already been issued.\nThis deposit now requires reversal review.`)
+                      .setTimestamp();
+
+                    await msg.edit({ embeds: [embed], components: [] }).catch(() => null);
+                  }
+                }
+              }
+            }
+
+            await persist();
+          }
+        }
+
+        await message.reply("Attendee(s) removed from the event log.");
+      }
+
+      delete data.applications[`TEMP_EVENT_EDIT_${message.author.id}`];
       await persist();
-      const nextQuestion = config.setup.applicationQuestions[application.questionIndex];
-      return message.channel.send({
-        content: `**Question ${application.questionIndex + 1}/${config.setup.applicationQuestions.length}:** ${nextQuestion.question}`
-      });
     }
   } catch (error) {
     console.error("messageCreate handler error:", error);
