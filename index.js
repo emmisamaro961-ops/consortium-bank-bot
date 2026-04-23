@@ -785,28 +785,6 @@ function parseUserIdsFromInput(text) {
 function formatMentionList(ids) {
   if (!ids || !ids.length) return "None";
 
-  const text = ids.map(id => `<@${id}>`).join(", ");
-  if (text.length <= 1024) return text;
-
-  let result = "";
-  let count = 0;
-
-  for (const id of ids) {
-    const mention = `<@${id}>`;
-    const next = result ? `${result}, ${mention}` : mention;
-
-    if (next.length > 1000) break;
-    result = next;
-    count++;
-  }
-
-  const remaining = ids.length - count;
-  return remaining > 0 ? `${result}\n...and ${remaining} more` : result;
-}
-
-function formatMentionList(ids) {
-  if (!ids || !ids.length) return "None";
-
   const mentions = ids.map(id => `<@${id}>`);
   let result = "";
 
@@ -1216,27 +1194,29 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
   await maybeHandleBoosterMembershipUpdate(oldMember, newMember).catch(console.error);
 });
 
-client.on("voiceStateUpdate", async (oldState, newState) => {
+        client.on("interactionCreate", async (interaction) => {
   try {
     reloadData();
 
-    if (oldState.channelId) {
-      markVoiceAttendance(oldState.channelId, oldState.id);
+    if (interaction.isButton()) {
+      const customId = interaction.customIdf;
+
+      if (customId === "start_bank_account_application") {
+        if (hasActiveAccount(data, interaction.user.id)) {
+          return interaction.reply({
+            embeds: [buildErrorEmbed("You already have an active Consortium Bank Account. You cannot have more than 1 accounts.")],
+            ephemeral: true,
+          });
+        }
+
+        // rest of your code continues here...
+      }
+
+      // more button code...
     }
 
-    if (newState.channelId) {
-      markVoiceAttendance(newState.channelId, newState.id);
-    }
-
-    await persist();
-  } catch (error) {
-    console.error("voiceStateUpdate tracking failed:", error);
-  }
-});
-
-client.on("interactionCreate", async (interaction) => {
-  try {
-    // all your command logic here
+    // modal code...
+    // slash command code...
 
   } catch (error) {
     console.error("interactionCreate error:", error);
@@ -1254,18 +1234,7 @@ client.on("interactionCreate", async (interaction) => {
     }).catch(() => null);
   }
 });
-
-    if (interaction.isButton()) {
-      const customId = interaction.customId;
-
-      if (customId === "start_bank_account_application") {
-        if (hasActiveAccount(data, interaction.user.id)) {
-          return interaction.reply({
-            embeds: [buildErrorEmbed("You already have an active Consortium Bank Account. You cannot have more than 1 accounts.")],
-            ephemeral: true,
-          });
-        }
-
+        
         const applicationsChannel = await client.channels.fetch(config.channels.accountApplications).catch(() => null);
         if (!applicationsChannel || applicationsChannel.type !== ChannelType.GuildText) {
           return interaction.reply({
