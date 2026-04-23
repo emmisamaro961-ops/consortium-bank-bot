@@ -8,6 +8,9 @@ const {
   ButtonBuilder,
   ButtonStyle,
   PermissionsBitField,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } = require("discord.js");
 
 const config = require("./config");
@@ -770,6 +773,55 @@ function updateWithdrawableDepositsForAccount(account) {
   return updated;
 }
 
+function parseUserIdsFromInput(text) {
+  if (!text || typeof text !== "string") return [];
+
+  const mentionIds = [...text.matchAll(/<@!?(\d+)>/g)].map(m => m[1]);
+  const rawIds = [...text.matchAll(/\b\d{17,20}\b/g)].map(m => m[0]);
+
+  return [...new Set([...mentionIds, ...rawIds])];
+}
+
+async function refreshEventLogMessage(guild, event) {
+  const loggingCamp = await client.channels.fetch(config.channels.loggingCamp).catch(() => null);
+  if (!loggingCamp || !event.loggingCampMessageId) return;
+
+  const msg = await loggingCamp.messages.fetch(event.loggingCampMessageId).catch(() => null);
+  if (!msg) return;
+
+  const attendeeText = event.attendeeIds.length
+    ? event.attendeeIds.map(id => `<@${id}>`).join(", ")
+    : "None";
+
+  const mvpText = event.mvpIds.length
+    ? event.mvpIds.map(id => `<@${id}>`).join(", ")
+    : "None";
+
+  const hostText = event.hostIds.length
+    ? event.hostIds.map(id => `<@${id}>`).join(", ")
+    : "None";
+
+  const embed = new EmbedBuilder()
+    .setColor(config.colors.info)
+    .setTitle(`📣 ${event.eventType}`)
+    .addFields(
+      { name: "Event ID", value: event.id, inline: true },
+      { name: "Rally Count", value: `${event.attendeeIds.length}`, inline: true },
+      { name: "Hosts", value: hostText, inline: false },
+      { name: "Attendees", value: attendeeText, inline: false },
+      { name: "MVP(s)", value: mvpText, inline: false },
+      { name: "Event Points", value: `${event.points}`, inline: true },
+      { name: "MVP Points", value: `${event.mvpPoints}`, inline: true },
+      { name: "Event Bank Deposit", value: `${config.economy.eventDepositAttendee}`, inline: true },
+      { name: "MVP Bank Deposit", value: `${config.economy.eventDepositMvp}`, inline: true },
+      { name: "Notes", value: event.notes || "None", inline: false }
+    )
+    .setFooter({ text: `Logged by ${event.createdBy}` })
+    .setTimestamp(new Date(event.createdAt));
+
+  await msg.edit({ embeds: [embed] });
+}
+
 function getWithdrawalEligibility(account, requestedAmount) {
   const issues = [];
   const accountAgeDays = daysBetween(account.createdAt);
@@ -1325,7 +1377,7 @@ client.on("interactionCreate", async (interaction) => {
             new EmbedBuilder()
               .setColor(config.colors.info)
               .setTitle("✏️ Event Editor")
-              .setDescription("Use the buttons below. This editor is only visible to you.\n\nBecause Discord buttons cannot open freeform user pickers by themselves, I’ll use the next typed message you send in this channel as the target mention(s).")
+              .setDescription("Use the buttons below to privately add or remove attendees from this event log.")
           ],
           components: [row],
           ephemeral: true,
@@ -1333,33 +1385,33 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       if (customId.startsWith("event_add_") || customId.startsWith("event_remove_")) {
-        const mode = customId.startsWith("event_add_") ? "add" : "remove";
-        const eventId = customId.replace(`event_${mode}_`, "");
-        const event = data.events[eventId];
-        if (!event) {
-          return interaction.reply({
-            embeds: [buildErrorEmbed("Event could not be found.")],
-            ephemeral: true,
-          });
-        }
+  const mode = customId.startsWith("event_add_") ? "add" : "remove";
+  const eventId = customId.replace(`event_${mode}_`, "");
+  const event = data.events[eventId];
 
-        data.applications[`TEMP_EVENT_EDIT_${interaction.user.id}`] = {
-          mode,
-          eventId,
-          expiresAt: Date.now() + 120000,
-        };
-        await persist();
+  if (!event) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("Event could not be found.")],
+      ephemeral: true,
+    });
+  }
 
-        return interaction.reply({
-          embeds: [
-            buildInfoEmbed(
-              "Event Edit Pending",
-              `Please send the user mention(s) in this channel within 2 minutes. I will ${mode} them from event ${eventId}.`
-            )
-          ],
-          ephemeral: true,
-        });
-      }
+  const modal = new ModalBuilder()
+    .setCustomId(`event_edit_modal_${mode}_${eventId}`)
+    .setTitle(`${mode === "add" ? "Add" : "Remove"} Event Attendee`);
+
+  const attendeeInput = new TextInputBuilder()
+    .setCustomId("attendee_input")
+    .setLabel("User ID, @mention, or multiple separated by spaces")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setPlaceholder("123456789012345678 or @User");
+
+  const row = new ActionRowBuilder().addComponents(attendeeInput);
+  modal.addComponents(row);
+
+  return interaction.showModal(modal);
+}
 
       if (customId.startsWith("eventdeposit_complete_")) {
         const taskId = customId.replace("eventdeposit_complete_", "");
@@ -1404,6 +1456,95 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
+if (interaction.isModalSubmit()) {
+  if (interaction.customId.startsWith("event_edit_modal_")) {
+    const [, , , mode, eventId] = interaction.customId.split("_");
+    const event = data.events[eventId];
+
+    if (!event) {
+      return interaction.reply({
+        embeds: [buildErrorEmbed("Event could not be found.")],
+        ephemeral: true,
+      });
+    }
+
+    if (!canUseEventCommands(interaction.member)) {
+      return interaction.reply({
+        embeds: [buildErrorEmbed("You are not allowed to edit this event log.")],
+        ephemeral: true,
+      });
+    }
+
+    const input = interaction.fields.getTextInputValue("attendee_input");
+    const userIds = parseUserIdsFromInput(input);
+
+    if (!userIds.length) {
+      return interaction.reply({
+        embeds: [buildErrorEmbed("Please enter at least one valid user ID or mention.")],
+        ephemeral: true,
+      });
+    }
+
+    if (mode === "add") {
+      for (const userId of userIds) {
+        if (!event.attendeeIds.includes(userId)) {
+          event.attendeeIds.push(userId);
+
+          const isMvp = event.mvpIds.includes(userId);
+          const awardedPoints = isMvp ? event.mvpPoints : event.points;
+          await logPointsChange(userId, awardedPoints, interaction.user.id, "event_add", isMvp);
+
+          if (hasActiveAccount(data, userId)) {
+            const amount = isMvp ? config.economy.eventDepositMvp : config.economy.eventDepositAttendee;
+            const taskId = generateId("EVDEP");
+
+            data.eventDepositTasks[taskId] = {
+              taskId,
+              eventId: event.id,
+              userId,
+              userMention: `<@${userId}>`,
+              amount,
+              status: "pending",
+              createdAt: nowIso(),
+              completedBy: null,
+              completedAt: null,
+              messageId: null,
+            };
+
+            await persist();
+
+            const taskMsg = await sendEventLoggingTask(data.eventDepositTasks[taskId]);
+            if (taskMsg) {
+              data.eventDepositTasks[taskId].messageId = taskMsg.id;
+              await persist();
+            }
+          }
+        }
+      }
+    }
+
+    if (mode === "remove") {
+      for (const userId of userIds) {
+        if (event.attendeeIds.includes(userId)) {
+          event.attendeeIds = event.attendeeIds.filter(id => id !== userId);
+
+          const isMvp = event.mvpIds.includes(userId);
+          const awardedPoints = isMvp ? event.mvpPoints : event.points;
+          await logPointsChange(userId, -awardedPoints, interaction.user.id, "event_remove", isMvp);
+        }
+      }
+    }
+
+    await persist();
+    await refreshEventLogMessage(interaction.guild, event);
+
+    return interaction.reply({
+      embeds: [buildSuccessEmbed(`Event ${eventId} updated successfully.`)],
+      ephemeral: true,
+    });
+  }
+}
+    
     if (!interaction.isChatInputCommand()) return;
 
     const commandName = interaction.commandName;
@@ -2142,53 +2283,6 @@ client.on("messageCreate", async (message) => {
         content: `**Question ${application.questionIndex + 1}/${config.setup.applicationQuestions.length}:** ${nextQuestion.question}`
       });
     }
-
-    // Temporary event edit flow
-    const tempEdit = data.applications[`TEMP_EVENT_EDIT_${message.author.id}`];
-    if (tempEdit && tempEdit.expiresAt > Date.now()) {
-      const event = data.events[tempEdit.eventId];
-      if (!event) return;
-
-      const mentionedIds = parseMentions(message.content);
-      if (!mentionedIds.length) {
-        await message.reply("Please mention at least one user.");
-        return;
-      }
-
-      if (tempEdit.mode === "add") {
-        for (const userId of mentionedIds) {
-          if (!event.attendeeIds.includes(userId)) {
-            event.attendeeIds.push(userId);
-            const isMvp = event.mvpIds.includes(userId);
-            const points = isMvp ? event.mvpPoints : event.points;
-            await logPointsChange(userId, points, message.author.id, "event_add", isMvp);
-
-            if (hasActiveAccount(data, userId)) {
-              const amount = isMvp ? config.economy.eventDepositMvp : config.economy.eventDepositAttendee;
-              const taskId = generateId("EVDEP");
-              const task = {
-                taskId,
-                eventId: event.id,
-                userId,
-                userMention: `<@${userId}>`,
-                amount,
-                status: "pending",
-                createdAt: nowIso(),
-                completedBy: null,
-                completedAt: null,
-                messageId: null,
-              };
-              data.eventDepositTasks[taskId] = task;
-              await persist();
-
-              const taskMsg = await sendEventLoggingTask(task);
-              if (taskMsg) {
-                data.eventDepositTasks[taskId].messageId = taskMsg.id;
-                await persist();
-              }
-            }
-          }
-        }
 
         await message.reply("Attendee(s) added to the event log.");
       } else if (tempEdit.mode === "remove") {
