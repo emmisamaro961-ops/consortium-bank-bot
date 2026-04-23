@@ -782,6 +782,28 @@ function parseUserIdsFromInput(text) {
   return [...new Set([...mentionIds, ...rawIds])];
 }
 
+function formatMentionList(ids) {
+  if (!ids || !ids.length) return "None";
+
+  const text = ids.map(id => `<@${id}>`).join(", ");
+  if (text.length <= 1024) return text;
+
+  let result = "";
+  let count = 0;
+
+  for (const id of ids) {
+    const mention = `<@${id}>`;
+    const next = result ? `${result}, ${mention}` : mention;
+
+    if (next.length > 1000) break;
+    result = next;
+    count++;
+  }
+
+  const remaining = ids.length - count;
+  return remaining > 0 ? `${result}\n...and ${remaining} more` : result;
+}
+
 async function refreshEventLogMessage(guild, event) {
   const loggingCamp = await client.channels.fetch(config.channels.loggingCamp).catch(() => null);
   if (!loggingCamp || !event.loggingCampMessageId) return;
@@ -789,17 +811,9 @@ async function refreshEventLogMessage(guild, event) {
   const msg = await loggingCamp.messages.fetch(event.loggingCampMessageId).catch(() => null);
   if (!msg) return;
 
-  const attendeeText = event.attendeeIds.length
-    ? event.attendeeIds.map(id => `<@${id}>`).join(", ")
-    : "None";
-
-  const mvpText = event.mvpIds.length
-    ? event.mvpIds.map(id => `<@${id}>`).join(", ")
-    : "None";
-
-  const hostText = event.hostIds.length
-    ? event.hostIds.map(id => `<@${id}>`).join(", ")
-    : "None";
+  const attendeeText = formatMentionList(event.attendeeIds);
+  const mvpText = formatMentionList(event.mvpIds);
+  const hostText = formatMentionList(event.hostIds);
 
   const embed = new EmbedBuilder()
     .setColor(config.colors.info)
@@ -954,9 +968,9 @@ const attendeeIds = [...new Set([
     throw new Error("Logging camp channel is unavailable.");
   }
 
-  const attendeeText = attendeeIds.length ? attendeeIds.map(id => `<@${id}>`).join(", ") : "None";
-  const mvpText = mvpIds.length ? mvpIds.map(id => `<@${id}>`).join(", ") : "None";
-  const hostText = hostIds.length ? hostIds.map(id => `<@${id}>`).join(", ") : "None";
+  const attendeeText = formatMentionList(attendeeIds);
+const mvpText = formatMentionList(mvpIds);
+const hostText = formatMentionList(hostIds);
 
   const embed = new EmbedBuilder()
   .setColor(config.colors.info)
