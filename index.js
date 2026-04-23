@@ -2284,19 +2284,6 @@ client.on("messageCreate", async (message) => {
       });
     }
 
-        await message.reply("Attendee(s) added to the event log.");
-      } else if (tempEdit.mode === "remove") {
-        for (const userId of mentionedIds) {
-          if (event.attendeeIds.includes(userId)) {
-            event.attendeeIds = event.attendeeIds.filter(id => id !== userId);
-            const isMvp = event.mvpIds.includes(userId);
-            const points = isMvp ? event.mvpPoints : event.points;
-            await logPointsChange(userId, -points, message.author.id, "event_remove", isMvp);
-
-            const relatedTasks = Object.values(data.eventDepositTasks).filter(task =>
-              task.eventId === event.id && task.userId === userId
-            );
-
             for (const task of relatedTasks) {
               if (task.status === "pending") {
                 task.status = "voided";
