@@ -2284,4 +2284,76 @@ client.on("messageCreate", async (message) => {
       });
     }
 
+ } catch (error) {
+    console.error(error);
+
+    if (interaction.replied || interaction.deferred) {
+      return interaction.followUp({
+        embeds: [buildErrorEmbed(`An error occurred: ${error.message}`)],
+        ephemeral: true,
+      }).catch(() => null);
+    }
+
+    return interaction.reply({
+      embeds: [buildErrorEmbed(`An error occurred: ${error.message}`)],
+      ephemeral: true,
+    }).catch(() => null);
+  }
+});
+
+client.on("messageCreate", async (message) => {
+  try {
+    if (message.author.bot) return;
+    if (!message.guild) return;
+
+    reloadData();
+
+    const application = Object.values(data.applications).find(app =>
+      app.threadId === message.channel.id &&
+      app.userId === message.author.id &&
+      app.status === "collecting"
+    );
+
+    if (application) {
+      const question = config.setup.applicationQuestions[application.questionIndex];
+      if (!question) return;
+
+      application.answers[question.key] = message.content.trim();
+      application.questionIndex += 1;
+
+      if (application.questionIndex >= config.setup.applicationQuestions.length) {
+        application.status = "submitted";
+        application.submittedAt = nowIso();
+        await persist();
+
+        const summaryLines = config.setup.applicationQuestions.map(q => {
+          const answer = application.answers[q.key] || "No answer";
+          return `**${q.question}**\n${answer}`;
+        });
+
+        const embed = new EmbedBuilder()
+          .setColor(config.colors.info)
+          .setTitle("🗃️ Application Submitted")
+          .setDescription(summaryLines.join("\n\n"))
+          .setTimestamp();
+
+        await message.channel.send({
+          content: `Application Submitted. ${getGuildRoleMention(config.roles.sovereign)} or ${getGuildRoleMention(config.roles.director)} will review your application.`,
+          embeds: [embed],
+        });
+
+        return;
+      }
+
+      await persist();
+      const nextQuestion = config.setup.applicationQuestions[application.questionIndex];
+      return message.channel.send({
+        content: `**Question ${application.questionIndex + 1}/${config.setup.applicationQuestions.length}:** ${nextQuestion.question}`
+      });
+    }
+  } catch (error) {
+    console.error("messageCreate handler error:", error);
+  }
+});
+
 client.login(process.env.TOKEN);
