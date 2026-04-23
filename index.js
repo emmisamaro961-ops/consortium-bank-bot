@@ -804,6 +804,33 @@ function formatMentionList(ids) {
   return remaining > 0 ? `${result}\n...and ${remaining} more` : result;
 }
 
+function formatMentionList(ids) {
+  if (!ids || !ids.length) return "None";
+
+  const mentions = ids.map(id => `<@${id}>`);
+  let result = "";
+
+  for (const mention of mentions) {
+    const next = result ? `${result}, ${mention}` : mention;
+    if (next.length > 1024) break;
+    result = next;
+  }
+
+  if (!result) {
+    return `${mentions[0]}\n...and ${mentions.length - 1} more`;
+  }
+
+  const shownCount = result.split(", ").length;
+  const remaining = mentions.length - shownCount;
+
+  return remaining > 0 ? `${result}\n...and ${remaining} more` : result;
+}
+
+function safeFieldText(text, max = 1024) {
+  if (!text) return "None";
+  return text.length > max ? `${text.slice(0, max - 12)}...` : text;
+}
+
 async function refreshEventLogMessage(guild, event) {
   const loggingCamp = await client.channels.fetch(config.channels.loggingCamp).catch(() => null);
   if (!loggingCamp || !event.loggingCampMessageId) return;
@@ -814,23 +841,24 @@ async function refreshEventLogMessage(guild, event) {
   const attendeeText = formatMentionList(event.attendeeIds);
   const mvpText = formatMentionList(event.mvpIds);
   const hostText = formatMentionList(event.hostIds);
+  const notesText = safeFieldText(event.notes || "None");
 
   const embed = new EmbedBuilder()
     .setColor(config.colors.info)
     .setTitle(`📣 ${event.eventType}`)
     .addFields(
-      { name: "Event ID", value: event.id, inline: true },
-      { name: "Rally Count", value: `${event.attendeeIds.length}`, inline: true },
+      { name: "Event ID", value: String(event.id), inline: true },
+      { name: "Rally Count", value: String(event.attendeeIds.length), inline: true },
       { name: "Hosts", value: hostText, inline: false },
       { name: "Attendees", value: attendeeText, inline: false },
       { name: "MVP(s)", value: mvpText, inline: false },
-      { name: "Event Points", value: `${event.points}`, inline: true },
-      { name: "MVP Points", value: `${event.mvpPoints}`, inline: true },
-      { name: "Event Bank Deposit", value: `${config.economy.eventDepositAttendee}`, inline: true },
-      { name: "MVP Bank Deposit", value: `${config.economy.eventDepositMvp}`, inline: true },
-      { name: "Notes", value: event.notes || "None", inline: false }
+      { name: "Event Points", value: String(event.points), inline: true },
+      { name: "MVP Points", value: String(event.mvpPoints), inline: true },
+      { name: "Event Bank Deposit", value: String(config.economy.eventDepositAttendee), inline: true },
+      { name: "MVP Bank Deposit", value: String(config.economy.eventDepositMvp), inline: true },
+      { name: "Notes", value: notesText, inline: false }
     )
-    .setFooter({ text: `Logged by ${event.createdBy}` })
+    .setFooter({ text: `Logged by ${event.createdBy}`.slice(0, 2048) })
     .setTimestamp(new Date(event.createdAt));
 
   await msg.edit({ embeds: [embed] });
@@ -971,6 +999,7 @@ const attendeeIds = [...new Set([
   const attendeeText = formatMentionList(attendeeIds);
 const mvpText = formatMentionList(mvpIds);
 const hostText = formatMentionList(hostIds);
+const notesText = safeFieldText(notes || "None");
 
   const embed = new EmbedBuilder()
   .setColor(config.colors.info)
@@ -985,7 +1014,7 @@ const hostText = formatMentionList(hostIds);
     { name: "MVP Points", value: `${mvpPoints}`, inline: true },
     { name: "Event Bank Deposit", value: `${config.economy.eventDepositAttendee}`, inline: true },
     { name: "MVP Bank Deposit", value: `${config.economy.eventDepositMvp}`, inline: true },
-    { name: "Notes", value: notes || "None", inline: false }
+    { name: "Notes", value: notesText, inline: false }
   )
     .setFooter({ text: `Logged by ${interaction.user.tag}` })
     .setTimestamp();
@@ -1207,7 +1236,24 @@ client.on("voiceStateUpdate", async (oldState, newState) => {
 
 client.on("interactionCreate", async (interaction) => {
   try {
-    reloadData();
+    // all your command logic here
+
+  } catch (error) {
+    console.error("interactionCreate error:", error);
+
+    if (interaction.replied || interaction.deferred) {
+      return interaction.followUp({
+        embeds: [buildErrorEmbed(`An error occurred: ${error.message}`)],
+        ephemeral: true,
+      }).catch(() => null);
+    }
+
+    return interaction.reply({
+      embeds: [buildErrorEmbed(`An error occurred: ${error.message}`)],
+      ephemeral: true,
+    }).catch(() => null);
+  }
+});
 
     if (interaction.isButton()) {
       const customId = interaction.customId;
