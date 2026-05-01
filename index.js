@@ -1917,6 +1917,30 @@ changed++;
   });
 }
 
+if (commandName === "testweeklyreports") {
+  if (!roles.isSovereign) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("Only the Consortium Sovereign can use this command.")],
+      ephemeral: true,
+    });
+  }
+
+  await interaction.reply({
+    embeds: [buildInfoEmbed("Sending weekly reports...")],
+    ephemeral: true,
+  });
+
+  await interaction.guild.members.fetch();
+
+  await sendWeeklyInactivityReport(interaction.guild);
+  await sendWeeklyClanReport(interaction.guild);
+
+  return interaction.followUp({
+    embeds: [buildSuccessEmbed("Weekly reports sent successfully.")],
+    ephemeral: true,
+  });
+}
+    
     if (commandName === "help") {
       const isStaff = isBankStaff(interaction.member);
       const correctChannel = isStaff ? config.channels.bankerCommands : config.channels.bankCommands;
