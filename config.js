@@ -27,6 +27,8 @@ module.exports = {
     pendingWithdrawals: "1493855423755714700",
     bankCommands: "1493860433923407953",
     pointsRegistrar: "1493441566692610199",
+    weeklyInactivityReport: "1499706274831405258",
+    weeklyClanReport: "1499711598590427207",
   },
 
   colors: {
