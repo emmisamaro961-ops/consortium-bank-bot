@@ -912,6 +912,7 @@ async function createEventLog(interaction) {
   const mvpPoints = interaction.options.getInteger("mvp_points", true);
   const eventType = interaction.options.getString("event_type", true);
   const notes = interaction.options.getString("notes") || "None";
+  const screenshot = interaction.options.getAttachment("screenshot");
 
   const eventId = generateId("EVT");
   const currentAttendeeIds = [...voiceChannel.members.keys()];
@@ -945,6 +946,7 @@ const attendeeIds = [...new Set([
     mvpPoints,
     eventType,
     notes,
+    screenshotUrl: screenshot?.url || null,
     createdBy: interaction.user.id,
     createdAt: nowIso(),
     loggingCampMessageId: null,
@@ -958,36 +960,19 @@ const attendeeIds = [...new Set([
     throw new Error("Logging camp channel is unavailable.");
   }
 
-  const attendeeText = attendeeIds.length ? attendeeIds.map(id => `<@${id}>`).join(", ") : "None";
-  const mvpText = mvpIds.length ? mvpIds.map(id => `<@${id}>`).join(", ") : "None";
-  const hostText = hostIds.length ? hostIds.map(id => `<@${id}>`).join(", ") : "None";
-
-  const embed = new EmbedBuilder()
-    .setColor(config.colors.info)
-    .setTitle(`📣 ${eventType}`)
-    .addFields(
-      { name: "Event ID", value: eventId, inline: true },
-      { name: "Hosts", value: hostText, inline: false },
-      { name: "Attendees", value: attendeeText, inline: false },
-      { name: "MVP(s)", value: mvpText, inline: false },
-      { name: "Event Points", value: `${points}`, inline: true },
-      { name: "MVP Points", value: `${mvpPoints}`, inline: true },
-      { name: "Event Bank Deposit", value: `${config.economy.eventDepositAttendee}`, inline: true },
-      { name: "MVP Bank Deposit", value: `${config.economy.eventDepositMvp}`, inline: true },
-      { name: "Notes", value: notes || "None", inline: false }
-    )
-    .setFooter({ text: `Logged by ${interaction.user.tag}` })
-    .setTimestamp();
+  const embed = buildEventLogEmbed(data.events[eventId]);
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`event_edit_${eventId}`)
-      .setLabel("Edit")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(`event_points_${eventId}`)
-      .setLabel("Points")
-      .setStyle(ButtonStyle.Secondary)
+  new ButtonBuilder()
+    .setCustomId(`event_edit_${eventId}`)
+    .setLabel("Edit")
+    .setEmoji("✏️")
+    .setStyle(ButtonStyle.Primary),
+  new ButtonBuilder()
+    .setCustomId(`event_points_${eventId}`)
+    .setLabel("View Points")
+    .setEmoji("📊")
+    .setStyle(ButtonStyle.Secondary)
   );
 
   const msg = await loggingCamp.send({ embeds: [embed], components: [row] });
@@ -1321,31 +1306,34 @@ client.on("interactionCreate", async (interaction) => {
 }
 
       if (customId.startsWith("event_points_")) {
-        const eventId = customId.replace("event_points_", "");
-        const event = data.events[eventId];
-        if (!event) {
-          return interaction.reply({
-            embeds: [buildErrorEmbed("Event could not be found.")],
-            ephemeral: true,
-          });
-        }
+  const eventId = customId.replace("event_points_", "");
+  const event = data.events[eventId];
 
-        const lines = event.attendeeIds.map((id) => {
-          const isMvp = event.mvpIds.includes(id);
-          const amount = isMvp ? event.mvpPoints : event.points;
-          return `${isMvp ? "⭐" : "•"} <@${id}> — ${amount} point(s)`;
-        });
+  if (!event) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("Event could not be found.")],
+      ephemeral: true,
+    });
+  }
 
-        return interaction.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(config.colors.info)
-              .setTitle(`📊 Event Points — ${event.id}`)
-              .setDescription(lines.length ? lines.join("\n") : "No attendees found.")
-          ],
-          ephemeral: true,
-        });
-      }
+  const lines = event.attendeeIds.map(id => {
+    const isMvp = event.mvpIds.includes(id);
+    const amount = isMvp ? event.mvpPoints : event.points;
+    const total = data.points?.[id]?.total || 0;
+
+    return `<@${id}>: \`+${amount}\` points **|** Total: \`${total}\`${isMvp ? " `MVP 🏅`" : ""}`;
+  });
+
+  return interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(config.colors.info)
+        .setTitle(`Points - ${event.eventType}`)
+        .setDescription(lines.length ? safeText(lines.join("\n")) : "No attendees found.")
+    ],
+    ephemeral: true,
+  });
+}
 
       if (customId.startsWith("event_edit_")) {
         const eventId = customId.replace("event_edit_", "");
@@ -1365,22 +1353,25 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`event_add_${eventId}`)
-            .setLabel("Add")
-            .setStyle(ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId(`event_remove_${eventId}`)
-            .setLabel("Remove")
-            .setStyle(ButtonStyle.Danger)
-        );
+  new ButtonBuilder()
+    .setCustomId(`event_add_${eventId}`)
+    .setLabel("Add Attendees")
+    .setEmoji("➕")
+    .setStyle(ButtonStyle.Success),
+
+  new ButtonBuilder()
+    .setCustomId(`event_remove_${eventId}`)
+    .setLabel("Remove Attendees")
+    .setEmoji("➖")
+    .setStyle(ButtonStyle.Danger)
+);
 
         return interaction.reply({
           embeds: [
             new EmbedBuilder()
               .setColor(config.colors.info)
               .setTitle("✏️ Event Editor")
-              .setDescription("Use the buttons below. This editor is only visible to you.\n\nBecause Discord buttons cannot open freeform user pickers by themselves, I’ll use the next typed message you send in this channel as the target mention(s).")
+              .setDescription("Choose whether you want to add or remove attendees. A popup box will appear where you can enter user mentions or IDs.")
           ],
           components: [row],
           ephemeral: true,
@@ -1388,33 +1379,26 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       if (customId.startsWith("event_add_") || customId.startsWith("event_remove_")) {
-        const mode = customId.startsWith("event_add_") ? "add" : "remove";
-        const eventId = customId.replace(`event_${mode}_`, "");
-        const event = data.events[eventId];
-        if (!event) {
-          return interaction.reply({
-            embeds: [buildErrorEmbed("Event could not be found.")],
-            ephemeral: true,
-          });
-        }
+  const mode = customId.startsWith("event_add_") ? "add" : "remove";
+  const eventId = customId.replace(`event_${mode}_`, "");
 
-        data.applications[`TEMP_EVENT_EDIT_${interaction.user.id}`] = {
-          mode,
-          eventId,
-          expiresAt: Date.now() + 120000,
-        };
-        await persist();
+  const modal = new ModalBuilder()
+    .setCustomId(`event_modal_${mode}_${eventId}`)
+    .setTitle(mode === "add" ? "Add Attendees" : "Remove Attendees");
 
-        return interaction.reply({
-          embeds: [
-            buildInfoEmbed(
-              "Event Edit Pending",
-              `Please send the user mention(s) in this channel within 2 minutes. I will ${mode} them from event ${eventId}.`
-            )
-          ],
-          ephemeral: true,
-        });
-      }
+  const input = new TextInputBuilder()
+    .setCustomId("users")
+    .setLabel("User mentions or IDs")
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder("@User1 @User2")
+    .setRequired(true);
+
+  const row = new ActionRowBuilder().addComponents(input);
+
+  modal.addComponents(row);
+
+  return interaction.showModal(modal);
+}
 
       if (customId.startsWith("eventdeposit_complete_")) {
         const taskId = customId.replace("eventdeposit_complete_", "");
@@ -1459,6 +1443,155 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
+if (interaction.isModalSubmit()) {
+  const customId = interaction.customId;
+
+  if (customId.startsWith("event_modal_")) {
+    const parts = customId.split("_");
+    const mode = parts[2]; // add or remove
+    const eventId = parts.slice(3).join("_");
+    const event = data.events[eventId];
+
+    if (!event) {
+      return interaction.reply({
+        embeds: [buildErrorEmbed("Event could not be found.")],
+        ephemeral: true,
+      });
+    }
+
+    if (!canUseEventCommands(interaction.member)) {
+      return interaction.reply({
+        embeds: [buildErrorEmbed("You are not allowed to edit this event log.")],
+        ephemeral: true,
+      });
+    }
+
+    const input = interaction.fields.getTextInputValue("users");
+    const userIds = parseUserIdsFromInput(input);
+
+    if (!userIds.length) {
+      return interaction.reply({
+        embeds: [buildErrorEmbed("Please enter at least one valid user mention or user ID.")],
+        ephemeral: true,
+      });
+    }
+
+    let changed = 0;
+
+    if (mode === "add") {
+      for (const userId of userIds) {
+        if (!event.attendeeIds.includes(userId)) {
+          event.attendeeIds.push(userId);
+
+          const isMvp = event.mvpIds.includes(userId);
+          const points = isMvp ? event.mvpPoints : event.points;
+
+          await logPointsChange(userId, points, interaction.user.id, "event_add", isMvp);
+
+if (hasActiveAccount(data, userId)) {
+  const amount = isMvp ? config.economy.eventDepositMvp : config.economy.eventDepositAttendee;
+  const taskId = generateId("EVDEP");
+
+  const task = {
+    taskId,
+    eventId: event.id,
+    userId,
+    userMention: `<@${userId}>`,
+    amount,
+    status: "pending",
+    createdAt: nowIso(),
+    completedBy: null,
+    completedAt: null,
+    messageId: null,
+  };
+
+  data.eventDepositTasks[taskId] = task;
+  await persist();
+
+  const taskMsg = await sendEventLoggingTask(task);
+  if (taskMsg) {
+    data.eventDepositTasks[taskId].messageId = taskMsg.id;
+  }
+}
+
+changed++;
+        }
+      }
+    }
+
+    if (mode === "remove") {
+      for (const userId of userIds) {
+        if (event.attendeeIds.includes(userId)) {
+          event.attendeeIds = event.attendeeIds.filter(id => id !== userId);
+
+          const isMvp = event.mvpIds.includes(userId);
+          const points = isMvp ? event.mvpPoints : event.points;
+
+          await logPointsChange(userId, -points, interaction.user.id, "event_remove", isMvp);
+
+const relatedTasks = Object.values(data.eventDepositTasks).filter(task =>
+  task.eventId === event.id && task.userId === userId
+);
+
+for (const task of relatedTasks) {
+  if (task.status === "pending") {
+    task.status = "voided";
+    task.voidedAt = nowIso();
+
+    const channel = await client.channels.fetch(config.channels.eventLogging).catch(() => null);
+    if (channel && task.messageId) {
+      const msg = await channel.messages.fetch(task.messageId).catch(() => null);
+      if (msg) {
+        const embed = new EmbedBuilder()
+          .setColor(config.colors.error)
+          .setTitle("📅 Event Deposit Voided")
+          .setDescription(`<@${userId}> was removed from the event log.\nThis deposit has been voided.`)
+          .setTimestamp();
+
+        await msg.edit({ embeds: [embed], components: [] }).catch(() => null);
+      }
+    }
+  } else if (task.status === "completed") {
+    task.status = "needs_review";
+    task.reviewFlaggedAt = nowIso();
+
+    const channel = await client.channels.fetch(config.channels.eventLogging).catch(() => null);
+    if (channel && task.messageId) {
+      const msg = await channel.messages.fetch(task.messageId).catch(() => null);
+      if (msg) {
+        const embed = new EmbedBuilder()
+          .setColor(config.colors.error)
+          .setTitle("📅 Reversal Review Required")
+          .setDescription(`<@${userId}> was removed from the event log after their deposit had already been marked completed.\nThis deposit now requires reversal review.`)
+          .setTimestamp();
+
+        await msg.edit({ embeds: [embed], components: [] }).catch(() => null);
+      }
+    }
+  }
+}
+
+changed++;
+        }
+      }
+    }
+
+    await persist();
+    await refreshEventLogMessage(event);
+
+    return interaction.reply({
+      embeds: [
+        buildSuccessEmbed(
+          mode === "add"
+            ? `Added ${changed} attendee(s) to the event log.`
+            : `Removed ${changed} attendee(s) from the event log.`
+        ),
+      ],
+      ephemeral: true,
+    });
+  }
+}
+    
     if (!interaction.isChatInputCommand()) return;
 
     const commandName = interaction.commandName;
