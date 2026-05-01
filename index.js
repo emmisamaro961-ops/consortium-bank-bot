@@ -8,6 +8,9 @@ const {
   ButtonBuilder,
   ButtonStyle,
   PermissionsBitField,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } = require("discord.js");
 
 const config = require("./config");
@@ -77,6 +80,62 @@ function parseMentions(text) {
   if (!text || typeof text !== "string") return [];
   const matches = [...text.matchAll(/<@!?(\d+)>/g)];
   return [...new Set(matches.map(m => m[1]))];
+}
+
+function parseUserIdsFromInput(text) {
+  if (!text || typeof text !== "string") return [];
+  const mentionIds = [...text.matchAll(/<@!?(\d+)>/g)].map(m => m[1]);
+  const rawIds = [...text.matchAll(/\b\d{17,20}\b/g)].map(m => m[0]);
+  return [...new Set([...mentionIds, ...rawIds])];
+}
+
+function safeText(text, max = 3900) {
+  if (!text) return "None";
+  return text.length > max ? `${text.slice(0, max - 20)}\n...and more` : text;
+}
+
+function buildEventLogEmbed(event) {
+  const hostText = event.hostIds?.length
+    ? event.hostIds.map(id => `<@${id}>`).join(" ")
+    : "None";
+
+  const attendeeLines = (event.attendeeIds || []).map(id => {
+    const isMvp = event.mvpIds?.includes(id);
+    return `> <@${id}>${isMvp ? " `MVP 🏅`" : ""}`;
+  });
+
+  const description = safeText([
+    `**Host(s):** ${hostText}`,
+    `__Attendees: (${event.attendeeIds?.length || 0})__`,
+    attendeeLines.length ? attendeeLines.join("\n") : "> None",
+    "",
+    "**Event Notes:**",
+    `\`${event.notes || "None"}\`",
+  ].join("\n"));
+
+  const embed = new EmbedBuilder()
+    .setColor(config.colors.info)
+    .setTitle(`📣 ${event.eventType}`)
+    .setDescription(description)
+    .setThumbnail(config.images.eventLogThumbnail)
+    .setFooter({ text: `Event ID: ${event.id}` })
+    .setTimestamp(new Date(event.createdAt));
+
+  if (event.screenshotUrl) {
+    embed.setImage(event.screenshotUrl);
+  }
+
+  return embed;
+}
+
+async function refreshEventLogMessage(event) {
+  const loggingCamp = await client.channels.fetch(config.channels.loggingCamp).catch(() => null);
+  if (!loggingCamp || !event.loggingCampMessageId) return;
+
+  const msg = await loggingCamp.messages.fetch(event.loggingCampMessageId).catch(() => null);
+  if (!msg) return;
+
+  await msg.edit({ embeds: [buildEventLogEmbed(event)] });
 }
 
 function pruneVoiceAttendance(channelId) {
