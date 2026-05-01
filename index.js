@@ -165,6 +165,155 @@ function trackWeeklyWithdrawal(userId, amount) {
   data.weeklyStats.withdrawals[weekKey][userId].lastAt = nowIso();
 }
 
+async function sendWeeklyInactivityReport(guild) {
+  const weekKey = ensureWeeklyStats();
+
+  const channel = await client.channels.fetch(config.channels.weeklyInactivityReport).catch(() => null);
+  if (!channel) return;
+
+  const exemptRoleId = "1493445052486258811";
+
+  const inactiveEmbeds = [];
+
+  for (const member of guild.members.cache.values()) {
+    if (member.user.bot) continue;
+    if (member.roles.cache.has(exemptRoleId)) continue;
+
+    const weeklyEvents = data.weeklyStats.events?.[weekKey]?.[member.id];
+    const weeklyDeposits = data.weeklyStats.deposits?.[weekKey]?.[member.id];
+
+    const reasons = [];
+
+    if (!weeklyEvents || weeklyEvents.count <= 0) {
+      reasons.push("No event attendance this week");
+    }
+
+    if (!weeklyDeposits || weeklyDeposits.count <= 0) {
+      reasons.push("No deposits earned this week");
+    }
+
+    if (!reasons.length) continue;
+
+    const lastEvent = weeklyEvents?.lastAt || "None";
+    const lastDeposit = weeklyDeposits?.lastAt || "None";
+
+    const embed = new EmbedBuilder()
+      .setColor(config.colors.error)
+      .setTitle("⚠️ Inactive Member")
+      .setDescription(
+        [
+          `👤 ${member}`,
+          "",
+          "**Status:** Inactive",
+          "",
+          "**Reasons:**",
+          ...reasons.map(r => `• ${r}`),
+          "",
+          "**Last Known Activity:**",
+          `Event: ${lastEvent}`,
+          `Deposit: ${lastDeposit}`,
+        ].join("\n")
+      )
+      .setTimestamp();
+
+    inactiveEmbeds.push(embed);
+  }
+
+  if (!inactiveEmbeds.length) {
+    await channel.send({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(config.colors.success)
+          .setTitle("✅ Weekly Inactivity Report")
+          .setDescription("No inactive members were detected this week.")
+      ]
+    });
+
+    return;
+  }
+
+  for (const embed of inactiveEmbeds) {
+    await channel.send({ embeds: [embed] });
+  }
+}
+
+async function sendWeeklyClanReport(guild) {
+  const weekKey = ensureWeeklyStats();
+
+  const channel = await client.channels.fetch(config.channels.weeklyClanReport).catch(() => null);
+  if (!channel) return;
+
+  const accountsCreated = Object.values(data.accounts || {}).filter(acc => {
+    if (!acc.createdAt) return false;
+
+    return getWeekKey(new Date(acc.createdAt)) === weekKey;
+  }).length;
+
+  const depositedAccounts = Object.keys(data.weeklyStats.deposits?.[weekKey] || {}).length;
+
+  const treasuryDeposits = Object.values(data.weeklyStats.deposits?.[weekKey] || {})
+    .reduce((sum, entry) => sum + Number(entry.total || 0), 0);
+
+  const withdrawalEntries = Object.values(data.weeklyStats.withdrawals?.[weekKey] || {});
+  const withdrawalsMade = withdrawalEntries.reduce((sum, e) => sum + Number(e.count || 0), 0);
+  const withdrawnAmount = withdrawalEntries.reduce((sum, e) => sum + Number(e.total || 0), 0);
+
+  const treasuryProfit = treasuryDeposits - withdrawnAmount;
+
+  const eventsHosted = Object.keys(data.events || {}).filter(eventId => {
+    const event = data.events[eventId];
+    return event && getWeekKey(new Date(event.createdAt)) === weekKey;
+  }).length;
+
+  const activeMembers = Object.keys(data.weeklyStats.events?.[weekKey] || {}).length;
+
+  const exemptRoleId = "1493445052486258811";
+
+  const inactiveMembers = guild.members.cache.filter(member => {
+    if (member.user.bot) return false;
+    if (member.roles.cache.has(exemptRoleId)) return false;
+
+    const weeklyEvents = data.weeklyStats.events?.[weekKey]?.[member.id];
+    return !weeklyEvents || weeklyEvents.count <= 0;
+  }).size;
+
+  const memberCount = guild.members.cache.filter(m => !m.user.bot).size;
+
+  let verdict = "Stable Activity";
+
+  if (eventsHosted >= 10 && activeMembers >= 20) {
+    verdict = "📈 Strong Growth";
+  } else if (inactiveMembers > activeMembers) {
+    verdict = "⚠️ Activity Dropped";
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor(config.colors.info)
+    .setTitle("📊 Weekly Consortium Report")
+    .setDescription(
+      [
+        "# 🏦 Banking",
+        `• Bank Accounts Created: \`${accountsCreated}\``,
+        `• Accounts Deposited: \`${depositedAccounts}\``,
+        `• Treasury Deposits: \`${formatMoney(treasuryDeposits)}\``,
+        `• Withdrawals Made: \`${withdrawalsMade}\``,
+        `• Withdrawn Amount: \`${formatMoney(withdrawnAmount)}\``,
+        `• Treasury Profit: \`${formatMoney(treasuryProfit)}\``,
+        "",
+        "# ⚔️ Clan Activity",
+        `• Events Hosted: \`${eventsHosted}\``,
+        `• Active Members: \`${activeMembers}\``,
+        `• Inactive Members: \`${inactiveMembers}\``,
+        `• Member Count: \`${memberCount}\``,
+        "",
+        `## ${verdict}`,
+      ].join("\n")
+    )
+    .setTimestamp();
+
+  await channel.send({ embeds: [embed] });
+}
+
 function getGuildRoleMention(roleId) {
   return `<@&${roleId}>`;
 }
@@ -1244,6 +1393,21 @@ client.once("clientReady", async () => {
       }
     }
   }
+  setInterval(async () => {
+  try {
+    reloadData();
+
+    for (const guild of client.guilds.cache.values()) {
+      await guild.members.fetch();
+      await sendWeeklyInactivityReport(guild);
+      await sendWeeklyClanReport(guild);
+    }
+
+    await persist();
+  } catch (error) {
+    console.error("Weekly report failed:", error);
+  }
+}, 7 * 24 * 60 * 60 * 1000);
 });
 
 client.on("guildMemberRemove", async (member) => {
