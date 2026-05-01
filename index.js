@@ -115,7 +115,7 @@ function buildEventLogEmbed(event) {
 
   const embed = new EmbedBuilder()
     .setColor(config.colors.info)
-    .setTitle(`📣 ${event.eventType}`)
+    .setTitle(`Event - ${event.eventType}`)
     .setDescription(description)
     .setThumbnail(config.images.eventLogThumbnail)
     .setFooter({ text: `Event ID: ${event.id}` })
