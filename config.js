@@ -40,6 +40,10 @@ module.exports = {
     boost: 0xf47fff,
   },
 
+images: {
+  eventLogThumbnail: "https://cdn.discordapp.com/attachments/1499728792187568239/1499729160438808796/MTC_Bouncy.gif"
+},
+  
   economy: {
     minimumDeposit: 5,
     bankerAutoApprovalMax: 30,
