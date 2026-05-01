@@ -141,6 +141,10 @@ const commands = [
       option.setName("amount").setDescription("Points to remove").setRequired(true).setMinValue(1)
     ),
 
+new SlashCommandBuilder()
+  .setName("testweeklyreports")
+  .setDescription("Test the weekly inactivity and clan reports"),
+  
   new SlashCommandBuilder()
     .setName("logevent")
     .setDescription("Log an event from a voice channel")
