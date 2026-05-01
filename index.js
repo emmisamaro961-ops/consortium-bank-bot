@@ -110,7 +110,7 @@ function buildEventLogEmbed(event) {
     attendeeLines.length ? attendeeLines.join("\n") : "> None",
     "",
     "**Event Notes:**",
-    `\`${event.notes || "None"}\`",
+    `\`${event.notes || "None"}\``,
   ].join("\n"));
 
   const embed = new EmbedBuilder()
