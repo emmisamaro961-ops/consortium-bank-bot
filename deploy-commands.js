@@ -163,8 +163,11 @@ const commands = [
       option.setName("event_type").setDescription("Type of event").setRequired(true)
     )
     .addStringOption(option =>
-      option.setName("notes").setDescription("Optional notes").setRequired(false)
-    ),
+  option.setName("notes").setDescription("Optional notes").setRequired(false)
+)
+.addAttachmentOption(option =>
+  option.setName("screenshot").setDescription("Optional event screenshot").setRequired(false)
+),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
