@@ -32,6 +32,13 @@ function createDefaultData() {
     eventDepositTasks: {},
     boostHistory: {},
     voiceAttendance: {},
+
+    weeklyStats: {
+  messages: {},
+  events: {},
+  deposits: {},
+  withdrawals: {},
+},
   };
 }
 
