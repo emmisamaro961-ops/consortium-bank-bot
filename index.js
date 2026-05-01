@@ -72,6 +72,99 @@ async function persist() {
   await saveData(data);
 }
 
+function getWeekKey(date = new Date()) {
+  const d = new Date(date);
+  const year = d.getUTCFullYear();
+
+  const firstDay = new Date(Date.UTC(year, 0, 1));
+  const pastDays = Math.floor((d - firstDay) / 86400000);
+  const week = Math.ceil((pastDays + firstDay.getUTCDay() + 1) / 7);
+
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
+function ensureWeeklyStats() {
+  if (!data.weeklyStats) {
+    data.weeklyStats = {
+      messages: {},
+      events: {},
+      deposits: {},
+      withdrawals: {},
+    };
+  }
+
+  const weekKey = getWeekKey();
+
+  if (!data.weeklyStats.messages[weekKey]) data.weeklyStats.messages[weekKey] = {};
+  if (!data.weeklyStats.events[weekKey]) data.weeklyStats.events[weekKey] = {};
+  if (!data.weeklyStats.deposits[weekKey]) data.weeklyStats.deposits[weekKey] = {};
+  if (!data.weeklyStats.withdrawals[weekKey]) data.weeklyStats.withdrawals[weekKey] = {};
+
+  return weekKey;
+}
+
+function trackWeeklyMessage(userId) {
+  const weekKey = ensureWeeklyStats();
+
+  if (!data.weeklyStats.messages[weekKey][userId]) {
+    data.weeklyStats.messages[weekKey][userId] = {
+      count: 0,
+      lastAt: null,
+    };
+  }
+
+  data.weeklyStats.messages[weekKey][userId].count += 1;
+  data.weeklyStats.messages[weekKey][userId].lastAt = nowIso();
+}
+
+function trackWeeklyEvent(userId, eventId) {
+  const weekKey = ensureWeeklyStats();
+
+  if (!data.weeklyStats.events[weekKey][userId]) {
+    data.weeklyStats.events[weekKey][userId] = {
+      count: 0,
+      eventIds: [],
+      lastAt: null,
+    };
+  }
+
+  data.weeklyStats.events[weekKey][userId].count += 1;
+  data.weeklyStats.events[weekKey][userId].eventIds.push(eventId);
+  data.weeklyStats.events[weekKey][userId].lastAt = nowIso();
+}
+
+function trackWeeklyDeposit(userId, amount) {
+  const weekKey = ensureWeeklyStats();
+
+  if (!data.weeklyStats.deposits[weekKey][userId]) {
+    data.weeklyStats.deposits[weekKey][userId] = {
+      count: 0,
+      total: 0,
+      lastAt: null,
+    };
+  }
+
+  data.weeklyStats.deposits[weekKey][userId].count += 1;
+  data.weeklyStats.deposits[weekKey][userId].total += Number(amount || 0);
+  data.weeklyStats.deposits[weekKey][userId].lastAt = nowIso();
+}
+
+function trackWeeklyWithdrawal(userId, amount) {
+  const weekKey = ensureWeeklyStats();
+
+  if (!data.weeklyStats.withdrawals[weekKey][userId]) {
+    data.weeklyStats.withdrawals[weekKey][userId] = {
+      count: 0,
+      total: 0,
+      lastAt: null,
+    };
+  }
+
+  data.weeklyStats.withdrawals[weekKey][userId].count += 1;
+  data.weeklyStats.withdrawals[weekKey][userId].total += Number(amount || 0);
+  data.weeklyStats.withdrawals[weekKey][userId].lastAt = nowIso();
+}
+
 function getGuildRoleMention(roleId) {
   return `<@&${roleId}>`;
 }
@@ -477,6 +570,7 @@ async function approveDeposit(tx, approver, guild) {
   }
 
   account.balance += recipientAmount;
+  trackWeeklyDeposit(tx.userId, recipientAmount);
   account.pendingApprovalBalance = Math.max(0, Number(account.pendingApprovalBalance || 0) - tx.amount);
 
   addTransactionToAccount(account, {
@@ -980,6 +1074,8 @@ const attendeeIds = [...new Set([
   await persist();
 
   for (const userId of attendeeIds) {
+    trackWeeklyEvent(userId, eventId);
+    
     const isMvp = mvpIds.includes(userId);
     const awardedPoints = isMvp ? mvpPoints : points;
     await logPointsChange(userId, awardedPoints, interaction.user.id, "event_add", isMvp);
@@ -1159,6 +1255,18 @@ client.on("guildMemberRemove", async (member) => {
 
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
   await maybeHandleBoosterMembershipUpdate(oldMember, newMember).catch(console.error);
+});
+
+client.on("messageCreate", async (message) => {
+  try {
+    if (!message.guild || message.author.bot) return;
+
+    reloadData();
+    trackWeeklyMessage(message.author.id);
+    await persist();
+  } catch (error) {
+    console.error("messageCreate weekly tracking failed:", error);
+  }
 });
 
 client.on("voiceStateUpdate", async (oldState, newState) => {
@@ -1482,6 +1590,8 @@ if (interaction.isModalSubmit()) {
       for (const userId of userIds) {
         if (!event.attendeeIds.includes(userId)) {
           event.attendeeIds.push(userId);
+
+          trackWeeklyEvent(userId, event.id);
 
           const isMvp = event.mvpIds.includes(userId);
           const points = isMvp ? event.mvpPoints : event.points;
@@ -2136,6 +2246,7 @@ if (commandName === "staffwithdraw") {
   account.balance = Math.max(0, Number(account.balance || 0) - amount);
   account.withdrawableBalance = Math.max(0, Number(account.withdrawableBalance || 0) - amount);
   addMonthlyWithdrawn(account, amount);
+  trackWeeklyWithdrawal(user.id, amount);
 
   addTransactionToAccount(account, {
     id: generateId("STFWDR"),
