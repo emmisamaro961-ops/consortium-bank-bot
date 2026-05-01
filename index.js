@@ -1926,9 +1926,14 @@ if (commandName === "testweeklyreports") {
   }
 
   await interaction.reply({
-    embeds: [buildInfoEmbed("Sending weekly reports...")],
-    ephemeral: true,
-  });
+  embeds: [
+    new EmbedBuilder()
+      .setColor(config.colors.info)
+      .setTitle("Weekly Reports")
+      .setDescription("Sending weekly reports...")
+  ],
+  ephemeral: true,
+});
 
   await interaction.guild.members.fetch();
 
