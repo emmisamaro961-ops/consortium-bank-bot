@@ -1175,7 +1175,9 @@ async function createEventLog(interaction) {
   const screenshot = interaction.options.getAttachment("screenshot");
 
   const eventId = generateId("EVT");
-  const currentAttendeeIds = [...voiceChannel.members.keys()];
+  const currentAttendeeIds = [...voiceChannel.members.values()]
+  .filter(member => !member.user.bot)
+  .map(member => member.id);
 const recentAttendeeIds = getRecentVoiceAttendees(voiceChannel.id);
 
 const now = Date.now();
@@ -1952,13 +1954,10 @@ if (commandName === "eventstart") {
     });
   }
 
-  const eventType = interaction.options.getString("event_type", true);
-
   data.eventSessions[interaction.guild.id] = {
-    startedAt: Date.now(),
-    startedBy: interaction.user.id,
-    eventType,
-  };
+  startedAt: Date.now(),
+  startedBy: interaction.user.id,
+};
 
   await persist();
 
