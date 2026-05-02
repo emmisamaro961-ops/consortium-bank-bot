@@ -147,13 +147,7 @@ new SlashCommandBuilder()
 
 new SlashCommandBuilder()
   .setName("eventstart")
-  .setDescription("Start an event session timer")
-  .addStringOption(option =>
-    option
-      .setName("event_type")
-      .setDescription("Type of event")
-      .setRequired(true)
-  ),
+  .setDescription("Start an event session timer"),
   
   new SlashCommandBuilder()
     .setName("logevent")
