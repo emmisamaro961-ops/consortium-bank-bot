@@ -362,7 +362,6 @@ function buildEventLogEmbed(event) {
   });
 
   const description = safeText([
-    const description = safeText([
     `**Host(s):** ${hostText}`,
     `**Duration:** \`${event.duration || "Unknown"}\``,
     "",
