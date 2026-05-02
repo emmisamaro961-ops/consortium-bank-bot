@@ -1193,15 +1193,11 @@ const attendeeIds = [...new Set([
   ...recentAttendeeIds,
 ])];
 
-  const attendeeRecords = attendeeIds
-  .map(userId => data.voiceAttendance[voiceChannel.id]?.[userId])
-  .filter(Boolean);
+const activeSession = data.eventSessions[interaction.guild.id];
 
-const oldestFirstSeen = attendeeRecords.length
-  ? Math.min(...attendeeRecords.map(record => record.firstSeen || Date.now()))
-  : Date.now();
-
-const eventDuration = formatDuration(Date.now() - oldestFirstSeen);
+const eventDuration = activeSession
+  ? formatDuration(Date.now() - activeSession.startedAt)
+  : "Unknown";
   
   const hostIds = parseMentions(hostsInput);
   const mvpIds = mvpsInput.toLowerCase() === "none" ? [] : parseMentions(mvpsInput);
@@ -1226,6 +1222,9 @@ const eventDuration = formatDuration(Date.now() - oldestFirstSeen);
 
   await persist();
 
+delete data.eventSessions[interaction.guild.id];
+await persist();
+  
   const loggingCamp = await client.channels.fetch(config.channels.loggingCamp).catch(() => null);
   if (!loggingCamp) {
     throw new Error("Logging camp channel is unavailable.");
@@ -1945,6 +1944,30 @@ changed++;
   });
 }
 
+if (commandName === "eventstart") {
+  if (!canUseEventCommands(interaction.member)) {
+    return interaction.reply({
+      embeds: [buildErrorEmbed("Only Consortium Event Executives or high authority can use this command.")],
+      ephemeral: true,
+    });
+  }
+
+  const eventType = interaction.options.getString("event_type", true);
+
+  data.eventSessions[interaction.guild.id] = {
+    startedAt: Date.now(),
+    startedBy: interaction.user.id,
+    eventType,
+  };
+
+  await persist();
+
+  return interaction.reply({
+    embeds: [buildSuccessEmbed("Event session started.")],
+    ephemeral: true,
+  });
+}
+    
 if (commandName === "testweeklyreports") {
   if (!roles.isSovereign) {
     return interaction.reply({
