@@ -331,6 +331,21 @@ function parseUserIdsFromInput(text) {
   return [...new Set([...mentionIds, ...rawIds])];
 }
 
+function formatDuration(ms) {
+  if (!ms || ms <= 0) return "0m";
+
+  const totalMinutes = Math.floor(ms / 60000);
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours <= 0) {
+    return `${minutes}m`;
+  }
+
+  return `${hours}h ${minutes}m`;
+}
+
 function safeText(text, max = 3900) {
   if (!text) return "None";
   return text.length > max ? `${text.slice(0, max - 20)}\n...and more` : text;
@@ -347,7 +362,10 @@ function buildEventLogEmbed(event) {
   });
 
   const description = safeText([
+    const description = safeText([
     `**Host(s):** ${hostText}`,
+    `**Duration:** \`${event.duration || "Unknown"}\``,
+    "",
     `__Attendees: (${event.attendeeIds?.length || 0})__`,
     attendeeLines.length ? attendeeLines.join("\n") : "> None",
     "",
@@ -1175,6 +1193,16 @@ const attendeeIds = [...new Set([
   ...qualifiedCurrent,
   ...recentAttendeeIds,
 ])];
+
+  const attendeeRecords = attendeeIds
+  .map(userId => data.voiceAttendance[voiceChannel.id]?.[userId])
+  .filter(Boolean);
+
+const oldestFirstSeen = attendeeRecords.length
+  ? Math.min(...attendeeRecords.map(record => record.firstSeen || Date.now()))
+  : Date.now();
+
+const eventDuration = formatDuration(Date.now() - oldestFirstSeen);
   
   const hostIds = parseMentions(hostsInput);
   const mvpIds = mvpsInput.toLowerCase() === "none" ? [] : parseMentions(mvpsInput);
@@ -1189,6 +1217,7 @@ const attendeeIds = [...new Set([
     mvpPoints,
     eventType,
     notes,
+    duration: eventDuration,
     screenshotUrl: screenshot?.url || null,
     createdBy: interaction.user.id,
     createdAt: nowIso(),
