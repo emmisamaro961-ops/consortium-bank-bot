@@ -144,6 +144,16 @@ const commands = [
 new SlashCommandBuilder()
   .setName("testweeklyreports")
   .setDescription("Test the weekly inactivity and clan reports"),
+
+new SlashCommandBuilder()
+  .setName("eventstart")
+  .setDescription("Start an event session timer")
+  .addStringOption(option =>
+    option
+      .setName("event_type")
+      .setDescription("Type of event")
+      .setRequired(true)
+  ),
   
   new SlashCommandBuilder()
     .setName("logevent")
